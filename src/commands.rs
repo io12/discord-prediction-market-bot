@@ -20,6 +20,17 @@ fn market_info_to_field(market_info: MarketInfo<UserId>) -> (String, String, boo
     )
 }
 
+#[poise::command(slash_command, prefix_command)]
+pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<()> {
+    poise::builtins::help(
+        ctx,
+        command.as_deref(),
+        poise::builtins::HelpConfiguration::default(),
+    )
+    .await?;
+    Ok(())
+}
+
 #[poise::command(slash_command, prefix_command, ephemeral)]
 pub async fn balance(ctx: Context<'_>, user: Option<User>) -> Result<()> {
     let user = user.as_ref().unwrap_or_else(|| ctx.author());
