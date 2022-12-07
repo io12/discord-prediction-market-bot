@@ -1,0 +1,13 @@
+[package]
+name = "discord-prediction-market-bot"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow = "1.0.66"
+im = { version = "15.1.0", features = ["serde"] }
+poise = "0.5.0"
+serde = "1.0.149"
+serde_json = "1.0.89"
+tokio = { version = "1.22.0", features = ["rt-multi-thread"] }
