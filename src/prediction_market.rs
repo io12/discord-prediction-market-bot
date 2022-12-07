@@ -191,26 +191,42 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             .get_mut(&market_id)
             .context("market does not exist")?;
         let product = market.y * market.n;
-        let user_shares = market
-            .num_user_shares
-            .get_mut(&calling_user)
-            .context("you have no shares to sell")?;
-        let num_shares = &mut user_shares.quantity;
-        let num_shares_to_sell = sell_amount.unwrap_or(*num_shares);
-        ensure!(
-            num_shares_to_sell.is_sign_positive(),
-            "must sell a positive number of shares"
-        );
-        *num_shares -= num_shares_to_sell;
-        ensure!(
-            !num_shares.is_sign_negative(),
-            "you are trying to sell more shares than you have"
-        );
-        let num_market_shares = match user_shares.kind {
+        let shares_sold = match sell_amount {
+            None => {
+                let user_shares = market
+                    .num_user_shares
+                    .get(&calling_user)
+                    .context("you have no shares to sell")?
+                    .clone();
+                market.num_user_shares.remove(&calling_user);
+                user_shares
+            }
+            Some(num_shares_to_sell) => {
+                let user_shares = market
+                    .num_user_shares
+                    .get_mut(&calling_user)
+                    .context("you have no shares to sell")?;
+                let num_shares = &mut user_shares.quantity;
+                ensure!(
+                    num_shares_to_sell.is_sign_positive(),
+                    "must sell a positive number of shares"
+                );
+                *num_shares -= num_shares_to_sell;
+                ensure!(
+                    !num_shares.is_sign_negative(),
+                    "you are trying to sell more shares than you have"
+                );
+                UserShareBalance {
+                    kind: user_shares.kind,
+                    quantity: num_shares_to_sell,
+                }
+            }
+        };
+        let num_market_shares = match shares_sold.kind {
             ShareKind::No => &mut market.n,
             ShareKind::Yes => &mut market.y,
         };
-        *num_market_shares += num_shares_to_sell;
+        *num_market_shares += shares_sold.quantity;
         let y = market.y;
         let n = market.n;
         let k = product;
@@ -227,7 +243,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         );
         let user_money = new_economy.balance_mut(calling_user);
         *user_money += sale_price;
-        Ok((new_economy, num_shares_to_sell, sale_price))
+        Ok((new_economy, shares_sold.quantity, sale_price))
     }
 
     pub fn buy(
