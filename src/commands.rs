@@ -20,11 +20,34 @@ fn market_info_to_field(market_info: MarketInfo<UserId>) -> (String, String, boo
     )
 }
 
+async fn autocomplete_market(
+    ctx: Context<'_>,
+    _: &str,
+) -> Vec<poise::AutocompleteChoice<MarketId>> {
+    let economy = ctx.data().lock().await;
+    economy
+        .list_markets()
+        .into_iter()
+        .map(
+            |MarketInfo {
+                 market_id,
+                 question,
+                 ..
+             }| poise::AutocompleteChoice {
+                name: question,
+                value: market_id,
+            },
+        )
+        .collect()
+}
+
 /// Get help on how to use this bot
 #[poise::command(slash_command, prefix_command)]
 pub async fn help(
     ctx: Context<'_>,
-    #[description = "Command to get help on"] command: Option<String>,
+    #[description = "Command to get help on"]
+    #[autocomplete = "poise::builtins::autocomplete_command"]
+    command: Option<String>,
 ) -> Result<()> {
     poise::builtins::help(
         ctx,
@@ -119,7 +142,9 @@ pub async fn list_markets(ctx: Context<'_>) -> Result<()> {
 #[poise::command(slash_command, prefix_command)]
 pub async fn resolve_market(
     ctx: Context<'_>,
-    #[description = "ID of market to resolve"] market_id: MarketId,
+    #[description = "ID of market to resolve"]
+    #[autocomplete = "autocomplete_market"]
+    market_id: MarketId,
     #[description = "Outcome to resolve to"] outcome: ShareKind,
 ) -> Result<()> {
     let mut economy = ctx.data().lock().await;
@@ -134,7 +159,9 @@ pub async fn resolve_market(
 #[poise::command(slash_command, prefix_command)]
 pub async fn sell(
     ctx: Context<'_>,
-    #[description = "ID of market to sell shares in"] market_id: MarketId,
+    #[description = "ID of market to sell shares in"]
+    #[autocomplete = "autocomplete_market"]
+    market_id: MarketId,
     #[description = "Amount to sell (default is all of your shares)"] sell_amount: Option<Balance>,
 ) -> Result<()> {
     let mut economy = ctx.data().lock().await;
@@ -152,7 +179,9 @@ pub async fn sell(
 #[poise::command(slash_command, prefix_command)]
 pub async fn buy(
     ctx: Context<'_>,
-    #[description = "ID of market to buy shares in"] market_id: MarketId,
+    #[description = "ID of market to buy shares in"]
+    #[autocomplete = "autocomplete_market"]
+    market_id: MarketId,
     #[description = "Amount of money to use for buying shares"]
     #[min = 0]
     purchase_price: Balance,
