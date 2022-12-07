@@ -3,7 +3,7 @@ use crate::{
     Context,
 };
 use anyhow::Result;
-use poise::serenity_prelude::{Mention, UserId};
+use poise::serenity_prelude::{Mention, User, UserId};
 
 fn market_info_to_field(market_info: MarketInfo<UserId>) -> (String, String, bool) {
     (
@@ -114,10 +114,11 @@ pub async fn buy(
 #[poise::command(slash_command, prefix_command)]
 pub async fn tip(
     ctx: Context<'_>,
-    user_to_tip: UserId,
+    user_to_tip: User,
     amount: Balance,
     reason: Option<String>,
 ) -> Result<()> {
+    let user_to_tip = user_to_tip.id;
     let mut economy = ctx.data().lock().await;
     let new_economy = economy.tip(ctx.author().id, user_to_tip, amount)?;
     *economy = new_economy;
