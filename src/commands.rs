@@ -163,7 +163,7 @@ pub async fn resolve_market(
     *economy = new_economy;
     ctx.send(|f| {
         f.embed(|f| {
-            f.title("Resolved market:")
+            f.title(format!("Resolved market {outcome}:"))
                 .fields(std::iter::once(market_info_to_field(market_info)))
         })
     })
