@@ -32,6 +32,7 @@ pub struct MarketInfo<UserId> {
     pub probability: u8,
     pub creator: UserId,
     pub description: String,
+    pub num_user_shares: OrdMap<UserId, UserShareBalance>,
 }
 
 pub struct Portfolio {
@@ -77,6 +78,7 @@ impl<UserId: Ord + Clone> Market<UserId> {
             probability: self.probability(),
             creator: self.creator.clone(),
             description: self.description.clone(),
+            num_user_shares: self.num_user_shares.clone(),
         }
     }
 }
@@ -149,7 +151,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         calling_user: UserId,
         market_id: MarketId,
         outcome: ShareKind,
-    ) -> Result<Economy<UserId>> {
+    ) -> Result<(Economy<UserId>, MarketInfo<UserId>)> {
         let market = self
             .markets
             .get(&market_id)
@@ -176,7 +178,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
 
         new_economy.markets.remove(&market_id).context("market does not exist, after we already accessed it?? this definitely shouldn't happen")?;
 
-        Ok(new_economy)
+        Ok((new_economy, market.info(market_id)))
     }
 
     pub fn sell(

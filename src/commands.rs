@@ -1,5 +1,5 @@
 use crate::{
-    prediction_market::{Balance, MarketId, MarketInfo, ShareKind},
+    prediction_market::{Balance, MarketId, MarketInfo, ShareKind, UserShareBalance},
     Context,
 };
 use anyhow::Result;
@@ -12,9 +12,20 @@ fn market_info_to_field(market_info: MarketInfo<UserId>) -> (String, String, boo
             market_info.market_id, market_info.question, market_info.probability
         ),
         format!(
-            "Creator: {}\nDescription: {}",
+            "Creator: {}\nDescription: {}\n\nPositions:\n{}",
             Mention::User(market_info.creator),
             market_info.description,
+            market_info
+                .num_user_shares
+                .into_iter()
+                .map(|(user_id, UserShareBalance { kind, quantity })| format!(
+                    "{} - {:.2} {}",
+                    Mention::User(user_id),
+                    quantity,
+                    kind
+                ))
+                .collect::<Vec<String>>()
+                .join("\n")
         ),
         false,
     )
@@ -148,10 +159,15 @@ pub async fn resolve_market(
     #[description = "Outcome to resolve to"] outcome: ShareKind,
 ) -> Result<()> {
     let mut economy = ctx.data().lock().await;
-    let new_economy = economy.resolve_market(ctx.author().id, market_id, outcome)?;
+    let (new_economy, market_info) = economy.resolve_market(ctx.author().id, market_id, outcome)?;
     *economy = new_economy;
-    ctx.say("resolved market successfully (TODO: show stats)")
-        .await?;
+    ctx.send(|f| {
+        f.embed(|f| {
+            f.title("Resolved market:")
+                .fields(std::iter::once(market_info_to_field(market_info)))
+        })
+    })
+    .await?;
     Ok(())
 }
 
