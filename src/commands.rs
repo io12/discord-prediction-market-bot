@@ -34,10 +34,9 @@ pub async fn portfolio(ctx: Context<'_>, user: Option<User>) -> Result<()> {
     let user = user.as_ref().unwrap_or_else(|| ctx.author());
     let economy = ctx.data().lock().await;
     let portfolio = economy.portfolio(user.id);
-    let user_mention = Mention::User(user.id);
     ctx.send(|f| {
         f.embed(|f| {
-            f.title(format!("{user_mention}'s portfolio"))
+            f.title(format!("{}'s portfolio", user.name))
                 .field("Cash", format!("${:.2}", portfolio.cash), true)
                 .fields(
                     portfolio
@@ -46,8 +45,8 @@ pub async fn portfolio(ctx: Context<'_>, user: Option<User>) -> Result<()> {
                         .map(|(question, position)| {
                             (
                                 question,
-                                format!("{} {} shares", position.quantity, position.kind),
-                                true,
+                                format!("{:.2} {} shares", position.quantity, position.kind),
+                                false,
                             )
                         }),
                 )
