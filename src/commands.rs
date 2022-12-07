@@ -20,10 +20,11 @@ fn market_info_to_field(market_info: MarketInfo<UserId>) -> (String, String, boo
     )
 }
 
-#[poise::command(slash_command, prefix_command)]
-pub async fn balance(ctx: Context<'_>) -> Result<()> {
+#[poise::command(slash_command, prefix_command, ephemeral)]
+pub async fn balance(ctx: Context<'_>, user: Option<User>) -> Result<()> {
+    let user = user.as_ref().unwrap_or_else(|| ctx.author());
     let economy = ctx.data().lock().await;
-    let response = format!("Your balance is ${:.2}", economy.balance(ctx.author().id));
+    let response = format!("Your balance is ${:.2}", economy.balance(user.id));
     ctx.say(response).await?;
     Ok(())
 }
