@@ -315,13 +315,13 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             "can only send positive amounts of money"
         );
         let mut new_economy = self.clone();
-        let caller_money = new_economy.balance_mut(calling_user.clone());
+        let caller_money = new_economy.balance_mut(calling_user);
         *caller_money -= amount;
         ensure!(
             !caller_money.is_sign_negative(),
             "you can't afford that in this economy"
         );
-        let tipped_user_money = new_economy.balance_mut(user_to_tip.clone());
+        let tipped_user_money = new_economy.balance_mut(user_to_tip);
         *tipped_user_money += amount;
         Ok(new_economy)
     }
