@@ -190,7 +190,7 @@ pub async fn sell(
             let f = f
                 .title("Sell")
                 .field("Shares sold", format!("{num_shares_sold:.2}"), true)
-                .field("Sale price", format!("${sale_price}:.2"), true)
+                .field("Sale price", format!("${sale_price:.2}"), true)
                 .field("Market", market_id, true);
             match reason {
                 None => f,
