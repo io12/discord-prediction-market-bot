@@ -29,6 +29,34 @@ pub async fn balance(ctx: Context<'_>, user: Option<User>) -> Result<()> {
     Ok(())
 }
 
+#[poise::command(slash_command, prefix_command, ephemeral)]
+pub async fn portfolio(ctx: Context<'_>, user: Option<User>) -> Result<()> {
+    let user = user.as_ref().unwrap_or_else(|| ctx.author());
+    let economy = ctx.data().lock().await;
+    let portfolio = economy.portfolio(user.id);
+    let user_mention = Mention::User(user.id);
+    ctx.send(|f| {
+        f.embed(|f| {
+            f.title(format!("{user_mention}'s portfolio"))
+                .field("Cash", format!("${:.2}", portfolio.cash), true)
+                .fields(
+                    portfolio
+                        .market_positions
+                        .into_iter()
+                        .map(|(question, position)| {
+                            (
+                                question,
+                                format!("{} {} shares", position.quantity, position.kind),
+                                true,
+                            )
+                        }),
+                )
+        })
+    })
+    .await?;
+    Ok(())
+}
+
 #[poise::command(slash_command, prefix_command)]
 pub async fn create_market(ctx: Context<'_>, question: String, description: String) -> Result<()> {
     let mut economy = ctx.data().lock().await;

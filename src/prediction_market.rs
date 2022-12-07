@@ -34,6 +34,11 @@ pub struct MarketInfo<UserId> {
     pub description: String,
 }
 
+pub struct Portfolio {
+    pub cash: Balance,
+    pub market_positions: Vec<(String, UserShareBalance)>,
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize, ChoiceParameter)]
 pub enum ShareKind {
     #[name = "YES"]
@@ -43,9 +48,9 @@ pub enum ShareKind {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-struct UserShareBalance {
-    kind: ShareKind,
-    quantity: Balance,
+pub struct UserShareBalance {
+    pub kind: ShareKind,
+    pub quantity: Balance,
 }
 
 impl<UserId: Ord + Clone> Market<UserId> {
@@ -91,6 +96,22 @@ impl<UserId: Ord + Clone> Economy<UserId> {
 
     fn balance_mut(&mut self, user: UserId) -> &mut Balance {
         self.user_money.entry(user).or_insert(USER_START_BALANCE)
+    }
+
+    pub fn portfolio(&self, user: UserId) -> Portfolio {
+        Portfolio {
+            cash: self.balance(user.clone()),
+            market_positions: self
+                .markets
+                .values()
+                .filter_map(|market| {
+                    market
+                        .num_user_shares
+                        .get(&user)
+                        .map(|user_shares| (market.question.clone(), user_shares.clone()))
+                })
+                .collect(),
+        }
     }
 
     pub fn create_market(

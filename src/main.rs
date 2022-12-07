@@ -30,6 +30,7 @@ async fn main() {
                 use commands::*;
                 vec![
                     balance(),
+                    portfolio(),
                     create_market(),
                     list_markets(),
                     resolve_market(),
