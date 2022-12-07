@@ -20,8 +20,12 @@ fn market_info_to_field(market_info: MarketInfo<UserId>) -> (String, String, boo
     )
 }
 
+/// Get help on how to use this bot
 #[poise::command(slash_command, prefix_command)]
-pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<()> {
+pub async fn help(
+    ctx: Context<'_>,
+    #[description = "Command to get help on"] command: Option<String>,
+) -> Result<()> {
     poise::builtins::help(
         ctx,
         command.as_deref(),
@@ -31,8 +35,12 @@ pub async fn help(ctx: Context<'_>, command: Option<String>) -> Result<()> {
     Ok(())
 }
 
+/// Get the balance of a user
 #[poise::command(slash_command, prefix_command, ephemeral)]
-pub async fn balance(ctx: Context<'_>, user: Option<User>) -> Result<()> {
+pub async fn balance(
+    ctx: Context<'_>,
+    #[description = "User to get the balance of (default is you)"] user: Option<User>,
+) -> Result<()> {
     let user = user.as_ref().unwrap_or_else(|| ctx.author());
     let economy = ctx.data().lock().await;
     let response = format!("Your balance is ${:.2}", economy.balance(user.id));
@@ -40,8 +48,12 @@ pub async fn balance(ctx: Context<'_>, user: Option<User>) -> Result<()> {
     Ok(())
 }
 
+/// Get the portfolio of a user
 #[poise::command(slash_command, prefix_command, ephemeral)]
-pub async fn portfolio(ctx: Context<'_>, user: Option<User>) -> Result<()> {
+pub async fn portfolio(
+    ctx: Context<'_>,
+    #[description = "User to get the portfolio of (default is you)"] user: Option<User>,
+) -> Result<()> {
     let user = user.as_ref().unwrap_or_else(|| ctx.author());
     let economy = ctx.data().lock().await;
     let portfolio = economy.portfolio(user.id);
@@ -67,8 +79,14 @@ pub async fn portfolio(ctx: Context<'_>, user: Option<User>) -> Result<()> {
     Ok(())
 }
 
+/// Create a market (costs $50)
 #[poise::command(slash_command, prefix_command)]
-pub async fn create_market(ctx: Context<'_>, question: String, description: String) -> Result<()> {
+pub async fn create_market(
+    ctx: Context<'_>,
+    #[description = "Question the market asks"] question: String,
+    #[description = "Description of market, including detailed resolution criteria"]
+    description: String,
+) -> Result<()> {
     let mut economy = ctx.data().lock().await;
     let (new_economy, market_info) =
         economy.create_market(ctx.author().id, question, description)?;
@@ -83,6 +101,7 @@ pub async fn create_market(ctx: Context<'_>, question: String, description: Stri
     Ok(())
 }
 
+/// Display a list of active markets
 #[poise::command(slash_command, prefix_command)]
 pub async fn list_markets(ctx: Context<'_>) -> Result<()> {
     let economy = ctx.data().lock().await;
@@ -96,11 +115,12 @@ pub async fn list_markets(ctx: Context<'_>) -> Result<()> {
     Ok(())
 }
 
+/// Resolve one of your markets
 #[poise::command(slash_command, prefix_command)]
 pub async fn resolve_market(
     ctx: Context<'_>,
-    market_id: MarketId,
-    outcome: ShareKind,
+    #[description = "ID of market to resolve"] market_id: MarketId,
+    #[description = "Outcome to resolve to"] outcome: ShareKind,
 ) -> Result<()> {
     let mut economy = ctx.data().lock().await;
     let new_economy = economy.resolve_market(ctx.author().id, market_id, outcome)?;
@@ -110,11 +130,12 @@ pub async fn resolve_market(
     Ok(())
 }
 
+/// Sell your shares
 #[poise::command(slash_command, prefix_command)]
 pub async fn sell(
     ctx: Context<'_>,
-    market_id: MarketId,
-    sell_amount: Option<Balance>,
+    #[description = "ID of market to sell shares in"] market_id: MarketId,
+    #[description = "Amount to sell (default is all of your shares)"] sell_amount: Option<Balance>,
 ) -> Result<()> {
     let mut economy = ctx.data().lock().await;
     let (new_economy, num_shares_sold, sale_price) =
@@ -127,13 +148,16 @@ pub async fn sell(
     Ok(())
 }
 
+/// Buy shares
 #[poise::command(slash_command, prefix_command)]
 pub async fn buy(
     ctx: Context<'_>,
-    market_id: MarketId,
-    #[min = 0] purchase_price: Balance,
-    share_kind: ShareKind,
-    reason: Option<String>,
+    #[description = "ID of market to buy shares in"] market_id: MarketId,
+    #[description = "Amount of money to use for buying shares"]
+    #[min = 0]
+    purchase_price: Balance,
+    #[description = "Type of share you want to buy"] share_kind: ShareKind,
+    #[description = "Reason you are buying"] reason: Option<String>,
 ) -> Result<()> {
     let mut economy = ctx.data().lock().await;
     let (new_economy, shares_received) =
@@ -150,12 +174,13 @@ pub async fn buy(
     Ok(())
 }
 
+/// Send a tip to another user
 #[poise::command(slash_command, prefix_command)]
 pub async fn tip(
     ctx: Context<'_>,
-    user_to_tip: User,
-    amount: Balance,
-    reason: Option<String>,
+    #[description = "User to send your tip to"] user_to_tip: User,
+    #[description = "Amount of money to send"] amount: Balance,
+    #[description = "Reason for tip"] reason: Option<String>,
 ) -> Result<()> {
     let user_to_tip = user_to_tip.id;
     let mut economy = ctx.data().lock().await;
