@@ -185,13 +185,19 @@ pub async fn sell(
     let (new_economy, num_shares_sold, sale_price) =
         economy.sell(ctx.author().id, market_id, sell_amount)?;
     *economy = new_economy;
-    let because_reason = match reason {
-        None => String::new(),
-        Some(reason) => format!(" because \"{reason}\""),
-    };
-    ctx.say(format!(
-        "Sold {num_shares_sold:.2} shares for ${sale_price:.2} in market {market_id}{because_reason}",
-    ))
+    ctx.send(|f| {
+        f.embed(|f| {
+            let f = f
+                .title("Sell")
+                .field("Shares sold", num_shares_sold, true)
+                .field("Sale price", sale_price, true)
+                .field("Market", market_id, true);
+            match reason {
+                None => f,
+                Some(reason) => f.field("Reason", reason, true),
+            }
+        })
+    })
     .await?;
     Ok(())
 }
@@ -213,13 +219,19 @@ pub async fn buy(
     let (new_economy, shares_received) =
         economy.buy(ctx.author().id, market_id, purchase_price, share_kind)?;
     *economy = new_economy;
-    let because_reason = match reason {
-        None => String::new(),
-        Some(reason) => format!(" because \"{reason}\""),
-    };
-    ctx.say(format!(
-        "Bought {shares_received:.2} {share_kind} shares for ${purchase_price:.2} in market {market_id}{because_reason}",
-    ))
+    ctx.send(|f| {
+        f.embed(|f| {
+            let f = f
+                .title("Buy")
+                .field("Shares bought", shares_received, true)
+                .field("Buy price", purchase_price, true)
+                .field("Market", market_id, true);
+            match reason {
+                None => f,
+                Some(reason) => f.field("Reason", reason, true),
+            }
+        })
+    })
     .await?;
     Ok(())
 }
