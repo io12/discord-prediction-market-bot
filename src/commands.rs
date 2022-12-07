@@ -163,13 +163,18 @@ pub async fn sell(
     #[autocomplete = "autocomplete_market"]
     market_id: MarketId,
     #[description = "Amount to sell (default is all of your shares)"] sell_amount: Option<Balance>,
+    #[description = "Reason you are selling"] reason: Option<String>,
 ) -> Result<()> {
     let mut economy = ctx.data().lock().await;
     let (new_economy, num_shares_sold, sale_price) =
         economy.sell(ctx.author().id, market_id, sell_amount)?;
     *economy = new_economy;
     ctx.say(format!(
-        "Sold {num_shares_sold:.2} shares for ${sale_price:.2}"
+        "Sold {num_shares_sold:.2} shares for ${sale_price:.2}{}",
+        match reason {
+            None => String::new(),
+            Some(reason) => format!(" because \"{reason}\""),
+        }
     ))
     .await?;
     Ok(())
