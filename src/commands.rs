@@ -189,8 +189,8 @@ pub async fn sell(
         f.embed(|f| {
             let f = f
                 .title("Sell")
-                .field("Shares sold", num_shares_sold, true)
-                .field("Sale price", sale_price, true)
+                .field("Shares sold", format!("{num_shares_sold:.2}"), true)
+                .field("Sale price", format!("${sale_price}:.2"), true)
                 .field("Market", market_id, true);
             match reason {
                 None => f,
@@ -223,8 +223,8 @@ pub async fn buy(
         f.embed(|f| {
             let f = f
                 .title("Buy")
-                .field("Shares bought", shares_received, true)
-                .field("Buy price", purchase_price, true)
+                .field("Shares bought", format!("{shares_received:.2}"), true)
+                .field("Buy price", format!("${purchase_price:.2}"), true)
                 .field("Market", market_id, true);
             match reason {
                 None => f,
