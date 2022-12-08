@@ -92,6 +92,14 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         }
     }
 
+    pub fn market_name(&self, market_id: MarketId) -> Result<&str> {
+        Ok(&self
+            .markets
+            .get(&market_id)
+            .context("failed getting market name because market ID does not exist")?
+            .question)
+    }
+
     pub fn balance(&self, user: UserId) -> Balance {
         *self.user_money.get(&user).unwrap_or(&USER_START_BALANCE)
     }
