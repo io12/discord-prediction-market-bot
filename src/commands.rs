@@ -222,7 +222,7 @@ pub async fn buy(
     ctx.send(|f| {
         f.embed(|f| {
             let f = f
-                .title("Buy")
+                .title(format!("Buy {share_kind}"))
                 .field("Shares bought", format!("{shares_received:.2}"), true)
                 .field("Buy price", format!("${purchase_price:.2}"), true)
                 .field("Market", market_id, true);
