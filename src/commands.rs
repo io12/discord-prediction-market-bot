@@ -3,7 +3,7 @@ use crate::{
     Context,
 };
 use anyhow::Result;
-use poise::serenity_prelude::{Mention, User, UserId};
+use poise::serenity_prelude::{Mention, Mentionable, User, UserId};
 
 fn market_info_to_field(market_info: MarketInfo<UserId>) -> (String, String, bool) {
     (
@@ -77,7 +77,11 @@ pub async fn balance(
 ) -> Result<()> {
     let user = user.as_ref().unwrap_or_else(|| ctx.author());
     let economy = ctx.data().lock().await;
-    let response = format!("Your balance is ${:.2}", economy.balance(user.id));
+    let response = format!(
+        "{}'s balance is ${:.2}",
+        user.mention(),
+        economy.balance(user.id)
+    );
     ctx.say(response).await?;
     Ok(())
 }
