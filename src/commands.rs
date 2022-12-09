@@ -165,11 +165,11 @@ pub async fn resolve_market(
     ctx: Context<'_>,
     #[description = "ID of market to resolve"]
     #[autocomplete = "autocomplete_market"]
-    market_id: MarketId,
+    market: MarketId,
     #[description = "Outcome to resolve to"] outcome: ShareKind,
 ) -> Result<()> {
     let mut economy = ctx.data().lock().await;
-    let (new_economy, market_info) = economy.resolve_market(ctx.author().id, market_id, outcome)?;
+    let (new_economy, market_info) = economy.resolve_market(ctx.author().id, market, outcome)?;
     *economy = new_economy;
     ctx.send(|f| {
         f.embed(|f| {
@@ -187,15 +187,15 @@ pub async fn sell(
     ctx: Context<'_>,
     #[description = "ID of market to sell shares in"]
     #[autocomplete = "autocomplete_market"]
-    market_id: MarketId,
+    market: MarketId,
     #[description = "Amount to sell (default is all of your shares)"] sell_amount: Option<Balance>,
     #[description = "Reason you are selling"] reason: Option<String>,
 ) -> Result<()> {
     let mut economy = ctx.data().lock().await;
     let (new_economy, num_shares_sold, sale_price) =
-        economy.sell(ctx.author().id, market_id, sell_amount)?;
+        economy.sell(ctx.author().id, market, sell_amount)?;
     *economy = new_economy;
-    let market_name = economy.market_name(market_id)?;
+    let market_name = economy.market_name(market)?;
     ctx.send(|f| {
         f.embed(|f| {
             let f = f
@@ -219,7 +219,7 @@ pub async fn buy(
     ctx: Context<'_>,
     #[description = "ID of market to buy shares in"]
     #[autocomplete = "autocomplete_market"]
-    market_id: MarketId,
+    market: MarketId,
     #[description = "Amount of money to use for buying shares"]
     #[min = 0]
     purchase_price: Balance,
@@ -228,9 +228,9 @@ pub async fn buy(
 ) -> Result<()> {
     let mut economy = ctx.data().lock().await;
     let (new_economy, shares_received) =
-        economy.buy(ctx.author().id, market_id, purchase_price, share_kind)?;
+        economy.buy(ctx.author().id, market, purchase_price, share_kind)?;
     *economy = new_economy;
-    let market_name = economy.market_name(market_id)?;
+    let market_name = economy.market_name(market)?;
     ctx.send(|f| {
         f.embed(|f| {
             let f = f
