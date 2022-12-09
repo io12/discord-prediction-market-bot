@@ -251,6 +251,11 @@ pub async fn buy(
                     format!("{old_prob}% → {new_prob}%"),
                     true,
                 )
+                .field(
+                    "Profit if {share_kind}",
+                    format!("+{:.0}%", (shares_received / purchase_price - 1.0) * 100.0),
+                    true,
+                )
                 .field("Market", market_name, true);
             match reason {
                 None => f,
