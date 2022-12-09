@@ -194,7 +194,9 @@ pub async fn sell(
     let mut economy = ctx.data().lock().await;
     let (new_economy, num_shares_sold, sale_price) =
         economy.sell(ctx.author().id, market, sell_amount)?;
+    let old_prob = economy.market_probability(market)?;
     *economy = new_economy;
+    let new_prob = economy.market_probability(market)?;
     let market_name = economy.market_name(market)?;
     ctx.send(|f| {
         f.embed(|f| {
@@ -202,6 +204,11 @@ pub async fn sell(
                 .title("Sell")
                 .field("Shares sold", format!("{num_shares_sold:.2}"), true)
                 .field("Sale price", format!("${sale_price:.2}"), true)
+                .field(
+                    "Probability change",
+                    format!("{old_prob}% → {new_prob}%"),
+                    true,
+                )
                 .field("Market", market_name, true);
             match reason {
                 None => f,
@@ -229,7 +236,9 @@ pub async fn buy(
     let mut economy = ctx.data().lock().await;
     let (new_economy, shares_received) =
         economy.buy(ctx.author().id, market, purchase_price, share_kind)?;
+    let old_prob = economy.market_probability(market)?;
     *economy = new_economy;
+    let new_prob = economy.market_probability(market)?;
     let market_name = economy.market_name(market)?;
     ctx.send(|f| {
         f.embed(|f| {
@@ -237,6 +246,11 @@ pub async fn buy(
                 .title(format!("Buy {share_kind}"))
                 .field("Shares bought", format!("{shares_received:.2}"), true)
                 .field("Buy price", format!("${purchase_price:.2}"), true)
+                .field(
+                    "Probability change",
+                    format!("{old_prob}% → {new_prob}%"),
+                    true,
+                )
                 .field("Market", market_name, true);
             match reason {
                 None => f,

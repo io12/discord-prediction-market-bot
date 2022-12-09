@@ -100,6 +100,14 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             .question)
     }
 
+    pub fn market_probability(&self, market_id: MarketId) -> Result<u8> {
+        Ok(self
+            .markets
+            .get(&market_id)
+            .context("failed getting market probability because market ID does not exist")?
+            .probability())
+    }
+
     pub fn balance(&self, user: UserId) -> Balance {
         *self.user_money.get(&user).unwrap_or(&USER_START_BALANCE)
     }
