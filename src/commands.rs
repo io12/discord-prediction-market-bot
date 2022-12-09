@@ -33,20 +33,26 @@ fn market_info_to_field(market_info: MarketInfo<UserId>) -> (String, String, boo
 
 async fn autocomplete_market(
     ctx: Context<'_>,
-    _: &str,
+    prefix: &str,
 ) -> Vec<poise::AutocompleteChoice<MarketId>> {
+    use fuzzy_matcher::FuzzyMatcher;
+    let matcher = fuzzy_matcher::skim::SkimMatcherV2::default();
     let economy = ctx.data().lock().await;
     economy
         .list_markets()
         .into_iter()
-        .map(
+        .filter_map(
             |MarketInfo {
                  market_id,
                  question,
                  ..
-             }| poise::AutocompleteChoice {
-                name: question,
-                value: market_id,
+             }| {
+                matcher
+                    .fuzzy_match(&question, prefix)
+                    .map(|_| poise::AutocompleteChoice {
+                        name: question,
+                        value: market_id,
+                    })
             },
         )
         .collect()
