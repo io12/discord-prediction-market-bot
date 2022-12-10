@@ -97,7 +97,7 @@ pub async fn balances(ctx: Context<'_>) -> Result<()> {
                     .enumerate()
                     .map(|(i, (user_id, balance))| {
                         let mention = Mention::User(user_id);
-                        (i, format!("{mention} ${balance:.2}"), true)
+                        (i + 1, format!("{mention} ${balance:.2}"), true)
                     }),
             )
         })
