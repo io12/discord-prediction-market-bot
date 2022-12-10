@@ -31,6 +31,7 @@ async fn main() {
                 vec![
                     help(),
                     balance(),
+                    balances(),
                     portfolio(),
                     create_market(),
                     list_markets(),

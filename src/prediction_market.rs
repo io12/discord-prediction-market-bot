@@ -108,6 +108,16 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             .probability())
     }
 
+    pub fn balances(&self) -> Vec<(UserId, Balance)> {
+        let mut ret = self
+            .user_money
+            .iter()
+            .map(|(user_id, balance)| (user_id.clone(), *balance))
+            .collect::<Vec<(UserId, Balance)>>();
+        ret.sort_by(|(_, a), (_, b)| b.partial_cmp(a).expect("failed comparing balances"));
+        ret
+    }
+
     pub fn balance(&self, user: UserId) -> Balance {
         *self.user_money.get(&user).unwrap_or(&USER_START_BALANCE)
     }
