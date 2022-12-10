@@ -76,7 +76,7 @@ pub async fn help(
 }
 
 /// Get the balances of all users
-#[poise::command(slash_command, prefix_command, ephemeral)]
+#[poise::command(slash_command, prefix_command)]
 pub async fn balances(ctx: Context<'_>) -> Result<()> {
     let economy = ctx.data().lock().await;
     ctx.send(|f| {
