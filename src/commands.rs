@@ -3,7 +3,16 @@ use crate::{
     Context,
 };
 use anyhow::Result;
-use poise::serenity_prelude::{Mention, Mentionable, User, UserId};
+use poise::serenity_prelude::{Color, Mention, Mentionable, User, UserId};
+
+impl ShareKind {
+    fn color(&self) -> Color {
+        match self {
+            Self::Yes => Color::DARK_GREEN,
+            Self::No => Color::RED,
+        }
+    }
+}
 
 fn market_info_to_field(market_info: MarketInfo<UserId>) -> (String, String, bool) {
     (
@@ -81,13 +90,16 @@ pub async fn balances(ctx: Context<'_>) -> Result<()> {
     let economy = ctx.data().lock().await;
     ctx.send(|f| {
         f.embed(|f| {
-            f.title("User balances")
-                .fields(economy.balances().into_iter().enumerate().map(
-                    |(i, (user_id, balance))| {
+            f.color(Color::DARK_GOLD).title("User balances").fields(
+                economy
+                    .balances()
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, (user_id, balance))| {
                         let mention = Mention::User(user_id);
                         (i, format!("{mention} ${balance:.2}"), true)
-                    },
-                ))
+                    }),
+            )
         })
     })
     .await?;
@@ -122,7 +134,8 @@ pub async fn portfolio(
     let portfolio = economy.portfolio(user.id);
     ctx.send(|f| {
         f.embed(|f| {
-            f.title(format!("{}'s portfolio", user.name))
+            f.color(Color::TEAL)
+                .title(format!("{}'s portfolio", user.name))
                 .field("Cash", format!("${:.2}", portfolio.cash), true)
                 .fields(
                     portfolio
@@ -156,7 +169,8 @@ pub async fn create_market(
     *economy = new_economy;
     ctx.send(|f| {
         f.embed(|f| {
-            f.title("Created market:")
+            f.color(Color::GOLD)
+                .title("Created market:")
                 .fields(std::iter::once(market_info_to_field(market_info)))
         })
     })
@@ -170,7 +184,8 @@ pub async fn list_markets(ctx: Context<'_>) -> Result<()> {
     let economy = ctx.data().lock().await;
     ctx.send(|f| {
         f.embed(|f| {
-            f.title("Markets")
+            f.color(Color::PURPLE)
+                .title("Markets")
                 .fields(economy.list_markets().map(market_info_to_field))
         })
     })
@@ -192,7 +207,8 @@ pub async fn resolve_market(
     *economy = new_economy;
     ctx.send(|f| {
         f.embed(|f| {
-            f.title(format!("Resolved market {outcome}:"))
+            f.color(outcome.color())
+                .title(format!("Resolved market {outcome}:"))
                 .fields(std::iter::once(market_info_to_field(market_info)))
         })
     })
@@ -220,6 +236,7 @@ pub async fn sell(
     ctx.send(|f| {
         f.embed(|f| {
             let f = f
+                .color(Color::BLITZ_BLUE)
                 .title("Sell")
                 .field("Shares sold", format!("{num_shares_sold:.2}"), true)
                 .field("Sale price", format!("${sale_price:.2}"), true)
@@ -262,6 +279,7 @@ pub async fn buy(
     ctx.send(|f| {
         f.embed(|f| {
             let f = f
+                .color(share_kind.color())
                 .title(format!("Buy {share_kind}"))
                 .field("Shares bought", format!("{shares_received:.2}"), true)
                 .field("Buy price", format!("${purchase_price:.2}"), true)
@@ -345,7 +363,8 @@ pub async fn input_time(
     let timestamp = date_time_parsed.timestamp();
     ctx.send(|f| {
         f.embed(|f| {
-            f.title("Time input test")
+            f.color(Color::BLURPLE)
+                .title("Time input test")
                 .field("Date/time input string", date_time, true)
                 .field("Timezone", timezone, true)
                 .field(
