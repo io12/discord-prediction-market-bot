@@ -6,6 +6,8 @@ publish = false
 
 [dependencies]
 anyhow = "1.0.66"
+chrono = "0.4.23"
+chrono-english = "0.1.7"
 chrono-tz = "0.8.1"
 fuzzy-matcher = "0.3.7"
 im = { version = "15.1.0", features = ["serde"] }

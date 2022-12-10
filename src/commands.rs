@@ -313,8 +313,59 @@ async fn autocomplete_tz(
 /// Test time input
 #[poise::command(slash_command, prefix_command)]
 pub async fn input_time(
-    _: Context<'_>,
-    #[autocomplete = "autocomplete_tz"] _tz: String,
+    ctx: Context<'_>,
+    date_time: String,
+    #[autocomplete = "autocomplete_tz"] timezone: String,
 ) -> Result<()> {
+    let timezone = timezone.parse::<chrono_tz::Tz>().unwrap();
+    let date_time = chrono_english::parse_date_string(
+        &date_time,
+        chrono::Local::now().with_timezone(&timezone),
+        chrono_english::Dialect::Us,
+    )?;
+    let timestamp = date_time.timestamp();
+    ctx.send(|f| {
+        f.embed(|f| {
+            f.title("Time input test")
+                .field("Date/time input string", date_time, true)
+                .field("Timezone", timezone, true)
+                .field(
+                    "Discord timestamp (short time)",
+                    format!("<t:{timestamp}:t>"),
+                    true,
+                )
+                .field(
+                    "Discord timestamp (long time)",
+                    format!("<t:{timestamp}:T>"),
+                    true,
+                )
+                .field(
+                    "Discord timestamp (short date)",
+                    format!("<t:{timestamp}:d>"),
+                    true,
+                )
+                .field(
+                    "Discord timestamp (long date)",
+                    format!("<t:{timestamp}:D>"),
+                    true,
+                )
+                .field(
+                    "Discord timestamp (short date/time)",
+                    format!("<t:{timestamp}:f>"),
+                    true,
+                )
+                .field(
+                    "Discord timestamp (long date/time)",
+                    format!("<t:{timestamp}:F>"),
+                    true,
+                )
+                .field(
+                    "Discord timestamp (relative time)",
+                    format!("<t:{timestamp}:R>"),
+                    true,
+                )
+        })
+    })
+    .await?;
     Ok(())
 }
