@@ -290,3 +290,31 @@ pub async fn tip(
     .await?;
     Ok(())
 }
+
+async fn autocomplete_tz(
+    _: Context<'_>,
+    prefix: &str,
+) -> Vec<poise::AutocompleteChoice<&'static str>> {
+    use fuzzy_matcher::FuzzyMatcher;
+    let matcher = fuzzy_matcher::skim::SkimMatcherV2::default();
+    chrono_tz::TZ_VARIANTS
+        .into_iter()
+        .filter_map(|tz| {
+            matcher
+                .fuzzy_match(tz.name(), prefix)
+                .map(|_| poise::AutocompleteChoice {
+                    name: tz.to_string(),
+                    value: tz.name(),
+                })
+        })
+        .collect()
+}
+
+/// Test time input
+#[poise::command(slash_command, prefix_command)]
+pub async fn input_time(
+    _: Context<'_>,
+    #[autocomplete = "autocomplete_tz"] _tz: String,
+) -> Result<()> {
+    Ok(())
+}

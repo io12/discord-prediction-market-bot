@@ -38,6 +38,7 @@ async fn main() {
                     buy(),
                     sell(),
                     tip(),
+                    input_time(),
                 ]
             },
             post_command: |ctx| Box::pin(save_state(ctx)),
