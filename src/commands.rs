@@ -318,12 +318,12 @@ pub async fn input_time(
     #[autocomplete = "autocomplete_tz"] timezone: String,
 ) -> Result<()> {
     let timezone = timezone.parse::<chrono_tz::Tz>().unwrap();
-    let date_time = chrono_english::parse_date_string(
+    let date_time_parsed = chrono_english::parse_date_string(
         &date_time,
         chrono::Local::now().with_timezone(&timezone),
         chrono_english::Dialect::Us,
     )?;
-    let timestamp = date_time.timestamp();
+    let timestamp = date_time_parsed.timestamp();
     ctx.send(|f| {
         f.embed(|f| {
             f.title("Time input test")
