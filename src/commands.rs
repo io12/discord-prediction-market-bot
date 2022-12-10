@@ -184,7 +184,7 @@ pub async fn list_markets(ctx: Context<'_>) -> Result<()> {
     let economy = ctx.data().lock().await;
     ctx.send(|f| {
         f.embed(|f| {
-            f.color(Color::PURPLE)
+            f.color(Color::DARK_BLUE)
                 .title("Markets")
                 .fields(economy.list_markets().map(market_info_to_field))
         })
