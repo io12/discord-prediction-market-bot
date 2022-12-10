@@ -81,11 +81,13 @@ pub async fn balances(ctx: Context<'_>) -> Result<()> {
     let economy = ctx.data().lock().await;
     ctx.send(|f| {
         f.embed(|f| {
-            f.title("User balances").fields(
-                economy.balances().into_iter().map(|(user_id, balance)| {
-                    (Mention::User(user_id), format!("${balance:.2}"), true)
-                }),
-            )
+            f.title("User balances")
+                .fields(economy.balances().into_iter().enumerate().map(
+                    |(i, (user_id, balance))| {
+                        let mention = Mention::User(user_id);
+                        (i, format!("{mention} ${balance:.2}"), true)
+                    },
+                ))
         })
     })
     .await?;
