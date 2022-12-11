@@ -24,6 +24,7 @@ struct Market<UserId: Ord + Clone> {
     y: Balance,
     n: Balance,
     num_user_shares: OrdMap<UserId, UserShareBalance>,
+    close_timestamp: Option<i64>,
 }
 
 pub struct MarketInfo<UserId> {
@@ -33,6 +34,7 @@ pub struct MarketInfo<UserId> {
     pub creator: UserId,
     pub description: String,
     pub num_user_shares: OrdMap<UserId, UserShareBalance>,
+    pub close_timestamp: Option<i64>,
 }
 
 pub struct Portfolio {
@@ -55,7 +57,12 @@ pub struct UserShareBalance {
 }
 
 impl<UserId: Ord + Clone> Market<UserId> {
-    fn new(creator: UserId, question: String, description: String) -> Self {
+    fn new(
+        creator: UserId,
+        question: String,
+        description: String,
+        close_timestamp: Option<i64>,
+    ) -> Self {
         Market {
             creator,
             question,
@@ -63,6 +70,7 @@ impl<UserId: Ord + Clone> Market<UserId> {
             y: MARKET_CREATION_COST,
             n: MARKET_CREATION_COST,
             num_user_shares: OrdMap::new(),
+            close_timestamp,
         }
     }
 
@@ -79,6 +87,7 @@ impl<UserId: Ord + Clone> Market<UserId> {
             creator: self.creator.clone(),
             description: self.description.clone(),
             num_user_shares: self.num_user_shares.clone(),
+            close_timestamp: self.close_timestamp,
         }
     }
 }
@@ -147,6 +156,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         calling_user: UserId,
         question: String,
         description: String,
+        close_timestamp: Option<i64>,
     ) -> Result<(Economy<UserId>, MarketInfo<UserId>)> {
         let mut new_economy = self.clone();
 
@@ -165,7 +175,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         );
 
         // Create market
-        let market = Market::new(calling_user, question, description);
+        let market = Market::new(calling_user, question, description, close_timestamp);
         let market_info = market.info(market_id);
         let _ = new_economy.markets.insert(market_id, market);
 
@@ -218,6 +228,12 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             .markets
             .get_mut(&market_id)
             .context("market does not exist")?;
+        if let Some(close_timestamp) = market.close_timestamp {
+            ensure!(
+                chrono::Local::now().timestamp() < close_timestamp,
+                "this market closed"
+            );
+        }
         let product = market.y * market.n;
         let shares_sold = match sell_amount {
             None => {
@@ -296,6 +312,12 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             .markets
             .get_mut(&market_id)
             .context("market does not exist")?;
+        if let Some(close_timestamp) = market.close_timestamp {
+            ensure!(
+                chrono::Local::now().timestamp() < close_timestamp,
+                "this market closed"
+            );
+        }
         let product = market.y * market.n;
         market.n += purchase_price;
         market.y += purchase_price;

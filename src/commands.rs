@@ -2,7 +2,7 @@ use crate::{
     prediction_market::{Balance, MarketId, MarketInfo, ShareKind, UserShareBalance},
     Context,
 };
-use anyhow::Result;
+use anyhow::{Context as AnyhowContext, Result};
 use poise::serenity_prelude::{Color, Mention, Mentionable, User, UserId};
 
 impl ShareKind {
@@ -21,7 +21,12 @@ fn market_info_to_field(market_info: MarketInfo<UserId>) -> (String, String, boo
             market_info.market_id, market_info.question, market_info.probability
         ),
         format!(
-            "Creator: {}\nDescription: {}\n\nPositions:\n{}",
+            "{}Creator: {}\nDescription: {}\n\nPositions:\n{}",
+            match market_info.close_timestamp {
+                None => String::new(),
+                Some(close_timestamp) =>
+                    format!("Closes: <t:{close_timestamp}:R>, <t:{close_timestamp}:F>\n"),
+            },
             Mention::User(market_info.creator),
             market_info.description,
             market_info
@@ -162,10 +167,32 @@ pub async fn create_market(
     #[description = "Question the market asks"] question: String,
     #[description = "Description of market, including detailed resolution criteria"]
     description: String,
+    #[description = "Date and/or time the market closes (default is none)"]
+    close_date_and_time: Option<String>,
+    #[description = "Time zone to use for market close time (default is US/Eastern)"]
+    time_zone: Option<String>,
 ) -> Result<()> {
+    let time_zone = match time_zone {
+        Some(time_zone) => time_zone
+            .parse::<chrono_tz::Tz>()
+            .ok()
+            .context("invalid time zone")?,
+        None => chrono_tz::US::Eastern,
+    };
+    let close_date_and_time = close_date_and_time
+        .map(|s| {
+            chrono_english::parse_date_string(
+                &s,
+                chrono::Local::now().with_timezone(&time_zone),
+                chrono_english::Dialect::Us,
+            )
+        })
+        .transpose()
+        .context("failed parsing close date and time")?;
+    let close_timestamp = close_date_and_time.map(|date_time| date_time.timestamp());
     let mut economy = ctx.data().lock().await;
     let (new_economy, market_info) =
-        economy.create_market(ctx.author().id, question, description)?;
+        economy.create_market(ctx.author().id, question, description, close_timestamp)?;
     *economy = new_economy;
     ctx.send(|f| {
         f.embed(|f| {
