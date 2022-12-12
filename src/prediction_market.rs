@@ -3,16 +3,17 @@ use im::ordmap::OrdMap;
 use poise::ChoiceParameter;
 use serde::{Deserialize, Serialize};
 
-pub type Balance = f64;
+use crate::{money::Money, share_quantity::ShareQuantity};
+
 pub type MarketId = u64;
 
-const USER_START_BALANCE: Balance = 1000.0;
-const MARKET_CREATION_COST: Balance = 50.0;
+const USER_START_BALANCE: Money = Money(1000.0);
+const MARKET_CREATION_COST: Money = Money(50.0);
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Economy<UserId: Ord + Clone> {
     next_market_id: MarketId,
-    user_money: OrdMap<UserId, Balance>,
+    user_money: OrdMap<UserId, Money>,
     markets: OrdMap<MarketId, Market<UserId>>,
 }
 
@@ -21,8 +22,8 @@ struct Market<UserId: Ord + Clone> {
     creator: UserId,
     question: String,
     description: String,
-    y: Balance,
-    n: Balance,
+    y: ShareQuantity,
+    n: ShareQuantity,
     num_user_shares: OrdMap<UserId, UserShareBalance>,
     close_timestamp: Option<i64>,
 }
@@ -38,7 +39,7 @@ pub struct MarketInfo<UserId> {
 }
 
 pub struct Portfolio {
-    pub cash: Balance,
+    pub cash: Money,
     pub market_positions: Vec<(String, UserShareBalance)>,
 }
 
@@ -53,7 +54,7 @@ pub enum ShareKind {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct UserShareBalance {
     pub kind: ShareKind,
-    pub quantity: Balance,
+    pub quantity: ShareQuantity,
 }
 
 impl<UserId: Ord + Clone> Market<UserId> {
@@ -67,8 +68,8 @@ impl<UserId: Ord + Clone> Market<UserId> {
             creator,
             question,
             description,
-            y: MARKET_CREATION_COST,
-            n: MARKET_CREATION_COST,
+            y: ShareQuantity(MARKET_CREATION_COST.0),
+            n: ShareQuantity(MARKET_CREATION_COST.0),
             num_user_shares: OrdMap::new(),
             close_timestamp,
         }
@@ -76,7 +77,7 @@ impl<UserId: Ord + Clone> Market<UserId> {
 
     fn probability(&self) -> u8 {
         let p = self.n / (self.y + self.n);
-        (p * 100.0) as u8
+        (p.0 * 100.0) as u8
     }
 
     fn info(&self, market_id: MarketId) -> MarketInfo<UserId> {
@@ -117,21 +118,21 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             .probability())
     }
 
-    pub fn balances(&self) -> Vec<(UserId, Balance)> {
+    pub fn balances(&self) -> Vec<(UserId, Money)> {
         let mut ret = self
             .user_money
             .iter()
             .map(|(user_id, balance)| (user_id.clone(), *balance))
-            .collect::<Vec<(UserId, Balance)>>();
+            .collect::<Vec<(UserId, Money)>>();
         ret.sort_by(|(_, a), (_, b)| b.partial_cmp(a).expect("failed comparing balances"));
         ret
     }
 
-    pub fn balance(&self, user: UserId) -> Balance {
+    pub fn balance(&self, user: UserId) -> Money {
         *self.user_money.get(&user).unwrap_or(&USER_START_BALANCE)
     }
 
-    fn balance_mut(&mut self, user: UserId) -> &mut Balance {
+    fn balance_mut(&mut self, user: UserId) -> &mut Money {
         self.user_money.entry(user).or_insert(USER_START_BALANCE)
     }
 
@@ -170,7 +171,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         let user_money = new_economy.balance_mut(calling_user.clone());
         *user_money -= MARKET_CREATION_COST;
         ensure!(
-            !user_money.is_sign_negative(),
+            !user_money.0.is_sign_negative(),
             "can't afford market creation cost"
         );
 
@@ -202,14 +203,14 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         for (user, share_balance) in market.num_user_shares.iter() {
             if share_balance.kind == outcome {
                 let user_money = new_economy.balance_mut(user.clone());
-                *user_money += share_balance.quantity
+                *user_money += Money(share_balance.quantity.0)
             }
         }
 
         let caller_money = new_economy.balance_mut(calling_user);
         match outcome {
-            ShareKind::No => *caller_money += market.n,
-            ShareKind::Yes => *caller_money += market.y,
+            ShareKind::No => *caller_money += Money(market.n.0),
+            ShareKind::Yes => *caller_money += Money(market.y.0),
         }
 
         new_economy.markets.remove(&market_id).context("market does not exist, after we already accessed it?? this definitely shouldn't happen")?;
@@ -221,8 +222,8 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         &self,
         calling_user: UserId,
         market_id: MarketId,
-        sell_amount: Option<Balance>,
-    ) -> Result<(Economy<UserId>, Balance, Balance)> {
+        sell_amount: Option<ShareQuantity>,
+    ) -> Result<(Economy<UserId>, ShareQuantity, Money)> {
         let mut new_economy = self.clone();
         let market = new_economy
             .markets
@@ -234,7 +235,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
                 "this market closed"
             );
         }
-        let product = market.y * market.n;
+        let product = market.y.0 * market.n.0;
         let shares_sold = match sell_amount {
             None => {
                 let user_shares = market
@@ -252,12 +253,12 @@ impl<UserId: Ord + Clone> Economy<UserId> {
                     .context("you have no shares to sell")?;
                 let num_shares = &mut user_shares.quantity;
                 ensure!(
-                    num_shares_to_sell.is_sign_positive(),
+                    num_shares_to_sell.0.is_sign_positive(),
                     "must sell a positive number of shares"
                 );
                 *num_shares -= num_shares_to_sell;
                 ensure!(
-                    !num_shares.is_sign_negative(),
+                    !num_shares.0.is_sign_negative(),
                     "you are trying to sell more shares than you have"
                 );
                 UserShareBalance {
@@ -271,41 +272,41 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             ShareKind::Yes => &mut market.y,
         };
         *num_market_shares += shares_sold.quantity;
-        let y = market.y;
-        let n = market.n;
+        let y = market.y.0;
+        let n = market.n.0;
         let k = product;
         let sale_price = (y + n - ((y + n).powf(2.0) + 4.0 * (k - n * y)).sqrt()) / 2.0;
-        market.n -= sale_price;
+        market.n -= ShareQuantity(sale_price);
         ensure!(
-            !market.n.is_sign_negative(),
+            !market.n.0.is_sign_negative(),
             "underflow balancing market NO shares"
         );
-        market.y -= sale_price;
+        market.y -= ShareQuantity(sale_price);
         ensure!(
-            !market.y.is_sign_negative(),
+            !market.y.0.is_sign_negative(),
             "underflow balancing market YES shares"
         );
         let user_money = new_economy.balance_mut(calling_user);
-        *user_money += sale_price;
-        Ok((new_economy, shares_sold.quantity, sale_price))
+        *user_money += Money(sale_price);
+        Ok((new_economy, shares_sold.quantity, Money(sale_price)))
     }
 
     pub fn buy(
         &self,
         calling_user: UserId,
         market_id: MarketId,
-        purchase_price: Balance,
+        purchase_price: Money,
         share_kind: ShareKind,
-    ) -> Result<(Economy<UserId>, Balance)> {
+    ) -> Result<(Economy<UserId>, ShareQuantity)> {
         ensure!(
-            purchase_price.is_sign_positive(),
+            purchase_price.0.is_sign_positive(),
             "must buy with a positive amount of money"
         );
         let mut new_economy = self.clone();
         let user_money = new_economy.balance_mut(calling_user.clone());
         *user_money -= purchase_price;
         ensure!(
-            !user_money.is_sign_negative(),
+            !user_money.0.is_sign_negative(),
             "you can't afford that in this economy"
         );
         let market = new_economy
@@ -319,8 +320,9 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             );
         }
         let product = market.y * market.n;
-        market.n += purchase_price;
-        market.y += purchase_price;
+        let num_new_shares = ShareQuantity(purchase_price.0);
+        market.n += num_new_shares;
+        market.y += num_new_shares;
         let n = market.n;
         let y = market.y;
         let k = product;
@@ -329,7 +331,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
                 let bought_shares = (n * y - k) / y;
                 market.n -= bought_shares;
                 ensure!(
-                    !market.n.is_sign_negative(),
+                    !market.n.0.is_sign_negative(),
                     "underflow subtracting NO shares for user"
                 );
                 bought_shares
@@ -338,7 +340,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
                 let bought_shares = (n * y - k) / n;
                 market.y -= bought_shares;
                 ensure!(
-                    !market.y.is_sign_negative(),
+                    !market.y.0.is_sign_negative(),
                     "underflow subtracting YES shares for user"
                 );
                 bought_shares
@@ -374,17 +376,17 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         &self,
         calling_user: UserId,
         user_to_tip: UserId,
-        amount: Balance,
+        amount: Money,
     ) -> Result<Economy<UserId>> {
         ensure!(
-            amount.is_sign_positive(),
+            amount.0.is_sign_positive(),
             "can only send positive amounts of money"
         );
         let mut new_economy = self.clone();
         let caller_money = new_economy.balance_mut(calling_user);
         *caller_money -= amount;
         ensure!(
-            !caller_money.is_sign_negative(),
+            !caller_money.0.is_sign_negative(),
             "you can't afford that in this economy"
         );
         let tipped_user_money = new_economy.balance_mut(user_to_tip);

@@ -1,5 +1,7 @@
 mod commands;
+mod money;
 mod prediction_market;
+mod share_quantity;
 
 use anyhow::Error;
 use poise::futures_util::lock::Mutex;

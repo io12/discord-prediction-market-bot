@@ -1,5 +1,7 @@
 use crate::{
-    prediction_market::{Balance, MarketId, MarketInfo, ShareKind, UserShareBalance},
+    money::Money,
+    prediction_market::{MarketId, MarketInfo, ShareKind, UserShareBalance},
+    share_quantity::ShareQuantity,
     Context,
 };
 use anyhow::{Context as AnyhowContext, Result};
@@ -33,7 +35,7 @@ fn market_info_to_field(market_info: MarketInfo<UserId>) -> (String, String, boo
                 .num_user_shares
                 .into_iter()
                 .map(|(user_id, UserShareBalance { kind, quantity })| format!(
-                    "{} - {:.2} {}",
+                    "{} - {} {}",
                     Mention::User(user_id),
                     quantity,
                     kind
@@ -102,7 +104,7 @@ pub async fn balances(ctx: Context<'_>) -> Result<()> {
                     .enumerate()
                     .map(|(i, (user_id, balance))| {
                         let mention = Mention::User(user_id);
-                        (i + 1, format!("{mention} ${balance:.2}"), true)
+                        (i + 1, format!("{mention} {balance}"), true)
                     }),
             )
         })
@@ -120,7 +122,7 @@ pub async fn balance(
     let user = user.as_ref().unwrap_or_else(|| ctx.author());
     let economy = ctx.data().lock().await;
     let response = format!(
-        "{}'s balance is ${:.2}",
+        "{}'s balance is {}",
         user.mention(),
         economy.balance(user.id)
     );
@@ -141,7 +143,7 @@ pub async fn portfolio(
         f.embed(|f| {
             f.color(Color::TEAL)
                 .title(format!("{}'s portfolio", user.name))
-                .field("Cash", format!("${:.2}", portfolio.cash), true)
+                .field("Cash", portfolio.cash, true)
                 .fields(
                     portfolio
                         .market_positions
@@ -149,7 +151,7 @@ pub async fn portfolio(
                         .map(|(question, position)| {
                             (
                                 question,
-                                format!("{:.2} {} shares", position.quantity, position.kind),
+                                format!("{} {} shares", position.quantity, position.kind),
                                 false,
                             )
                         }),
@@ -250,9 +252,10 @@ pub async fn sell(
     #[description = "ID of market to sell shares in"]
     #[autocomplete = "autocomplete_market"]
     market: MarketId,
-    #[description = "Amount to sell (default is all of your shares)"] sell_amount: Option<Balance>,
+    #[description = "Amount to sell (default is all of your shares)"] sell_amount: Option<f64>,
     #[description = "Reason you are selling"] reason: Option<String>,
 ) -> Result<()> {
+    let sell_amount = sell_amount.map(ShareQuantity);
     let mut economy = ctx.data().lock().await;
     let (new_economy, num_shares_sold, sale_price) =
         economy.sell(ctx.author().id, market, sell_amount)?;
@@ -265,8 +268,8 @@ pub async fn sell(
             let f = f
                 .color(Color::BLITZ_BLUE)
                 .title("Sell")
-                .field("Shares sold", format!("{num_shares_sold:.2}"), true)
-                .field("Sale price", format!("${sale_price:.2}"), true)
+                .field("Shares sold", num_shares_sold, true)
+                .field("Sale price", sale_price, true)
                 .field(
                     "Probability change",
                     format!("{old_prob}% → {new_prob}%"),
@@ -292,10 +295,11 @@ pub async fn buy(
     market: MarketId,
     #[description = "Amount of money to use for buying shares"]
     #[min = 0]
-    purchase_price: Balance,
+    purchase_price: f64,
     #[description = "Type of share you want to buy"] share_kind: ShareKind,
     #[description = "Reason you are buying"] reason: Option<String>,
 ) -> Result<()> {
+    let purchase_price = Money(purchase_price);
     let mut economy = ctx.data().lock().await;
     let (new_economy, shares_received) =
         economy.buy(ctx.author().id, market, purchase_price, share_kind)?;
@@ -308,8 +312,8 @@ pub async fn buy(
             let f = f
                 .color(share_kind.color())
                 .title(format!("Buy {share_kind}"))
-                .field("Shares bought", format!("{shares_received:.2}"), true)
-                .field("Buy price", format!("${purchase_price:.2}"), true)
+                .field("Shares bought", shares_received, true)
+                .field("Buy price", purchase_price, true)
                 .field(
                     "Probability change",
                     format!("{old_prob}% → {new_prob}%"),
@@ -317,7 +321,10 @@ pub async fn buy(
                 )
                 .field(
                     format!("Profit if {share_kind}"),
-                    format!("+{:.0}%", (shares_received / purchase_price - 1.0) * 100.0),
+                    format!(
+                        "+{:.0}%",
+                        (shares_received.0 / purchase_price.0 - 1.0) * 100.0
+                    ),
                     true,
                 )
                 .field("Market", market_name, true);
@@ -336,16 +343,16 @@ pub async fn buy(
 pub async fn tip(
     ctx: Context<'_>,
     #[description = "User to send your tip to"] user_to_tip: User,
-    #[description = "Amount of money to send"] amount: Balance,
+    #[description = "Amount of money to send"] amount: f64,
     #[description = "Reason for tip"] reason: Option<String>,
 ) -> Result<()> {
-    let user_to_tip = user_to_tip.id;
+    let amount = Money(amount);
     let mut economy = ctx.data().lock().await;
-    let new_economy = economy.tip(ctx.author().id, user_to_tip, amount)?;
+    let new_economy = economy.tip(ctx.author().id, user_to_tip.id, amount)?;
     *economy = new_economy;
     ctx.say(format!(
-        "Tipped ${amount:.2} to {}{}",
-        Mention::User(user_to_tip),
+        "Tipped {amount} to {}{}",
+        user_to_tip.mention(),
         match reason {
             None => String::new(),
             Some(reason) => format!(" because \"{reason}\""),
