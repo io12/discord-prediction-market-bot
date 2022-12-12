@@ -18,22 +18,13 @@ pub struct Economy<UserId: Ord + Clone> {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-struct Market<UserId: Ord + Clone> {
-    creator: UserId,
-    question: String,
-    description: String,
+pub struct Market<UserId: Ord + Clone> {
+    pub id: MarketId,
+    pub creator: UserId,
+    pub question: String,
+    pub description: String,
     y: ShareQuantity,
     n: ShareQuantity,
-    num_user_shares: OrdMap<UserId, UserShareBalance>,
-    close_timestamp: Option<i64>,
-}
-
-pub struct MarketInfo<UserId> {
-    pub market_id: MarketId,
-    pub question: String,
-    pub probability: u8,
-    pub creator: UserId,
-    pub description: String,
     pub num_user_shares: OrdMap<UserId, UserShareBalance>,
     pub close_timestamp: Option<i64>,
 }
@@ -59,12 +50,14 @@ pub struct UserShareBalance {
 
 impl<UserId: Ord + Clone> Market<UserId> {
     fn new(
+        id: MarketId,
         creator: UserId,
         question: String,
         description: String,
         close_timestamp: Option<i64>,
     ) -> Self {
         Market {
+            id,
             creator,
             question,
             description,
@@ -75,21 +68,9 @@ impl<UserId: Ord + Clone> Market<UserId> {
         }
     }
 
-    fn probability(&self) -> u8 {
+    pub fn probability(&self) -> u8 {
         let p = self.n / (self.y + self.n);
         (p.0 * 100.0) as u8
-    }
-
-    fn info(&self, market_id: MarketId) -> MarketInfo<UserId> {
-        MarketInfo {
-            market_id,
-            question: self.question.clone(),
-            probability: self.probability(),
-            creator: self.creator.clone(),
-            description: self.description.clone(),
-            num_user_shares: self.num_user_shares.clone(),
-            close_timestamp: self.close_timestamp,
-        }
     }
 
     fn is_open(&self) -> bool {
@@ -109,20 +90,10 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         }
     }
 
-    pub fn market_name(&self, market_id: MarketId) -> Result<&str> {
-        Ok(&self
-            .markets
+    pub fn market(&self, market_id: MarketId) -> Result<&Market<UserId>> {
+        self.markets
             .get(&market_id)
-            .context("failed getting market name because market ID does not exist")?
-            .question)
-    }
-
-    pub fn market_probability(&self, market_id: MarketId) -> Result<u8> {
-        Ok(self
-            .markets
-            .get(&market_id)
-            .context("failed getting market probability because market ID does not exist")?
-            .probability())
+            .context("failed getting market name because market ID does not exist")
     }
 
     pub fn balances(&self) -> Vec<(UserId, Money)> {
@@ -165,7 +136,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         question: String,
         description: String,
         close_timestamp: Option<i64>,
-    ) -> Result<(Economy<UserId>, MarketInfo<UserId>)> {
+    ) -> Result<(Economy<UserId>, MarketId)> {
         let mut new_economy = self.clone();
 
         // Create new market ID
@@ -183,11 +154,19 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         );
 
         // Create market
-        let market = Market::new(calling_user, question, description, close_timestamp);
-        let market_info = market.info(market_id);
-        let _ = new_economy.markets.insert(market_id, market);
+        let market = Market::new(
+            market_id,
+            calling_user,
+            question,
+            description,
+            close_timestamp,
+        );
+        ensure!(
+            new_economy.markets.insert(market_id, market).is_none(),
+            "somehow, market with this id exists already"
+        );
 
-        Ok((new_economy, market_info))
+        Ok((new_economy, market_id))
     }
 
     pub fn resolve_market(
@@ -195,7 +174,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         calling_user: UserId,
         market_id: MarketId,
         outcome: ShareKind,
-    ) -> Result<(Economy<UserId>, MarketInfo<UserId>)> {
+    ) -> Result<(Economy<UserId>, Market<UserId>)> {
         let market = self
             .markets
             .get(&market_id)
@@ -220,9 +199,9 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             ShareKind::Yes => *caller_money += Money(market.y.0),
         }
 
-        new_economy.markets.remove(&market_id).context("market does not exist, after we already accessed it?? this definitely shouldn't happen")?;
+        let market = new_economy.markets.remove(&market_id).context("market does not exist, after we already accessed it?? this definitely shouldn't happen")?;
 
-        Ok((new_economy, market.info(market_id)))
+        Ok((new_economy, market))
     }
 
     pub fn sell(
@@ -363,10 +342,8 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         Ok((new_economy, bought_shares))
     }
 
-    pub fn list_markets(&self) -> impl Iterator<Item = MarketInfo<UserId>> + '_ {
-        self.markets
-            .iter()
-            .map(|(&market_id, market)| market.info(market_id))
+    pub fn list_markets(&self) -> impl Iterator<Item = &Market<UserId>> + '_ {
+        self.markets.values()
     }
 
     pub fn tip(

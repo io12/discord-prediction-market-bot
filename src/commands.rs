@@ -1,6 +1,6 @@
 use crate::{
     money::Money,
-    prediction_market::{MarketId, MarketInfo, ShareKind, UserShareBalance},
+    prediction_market::{Market, MarketId, ShareKind, UserShareBalance},
     share_quantity::ShareQuantity,
     Context, Economy,
 };
@@ -16,27 +16,29 @@ impl ShareKind {
     }
 }
 
-fn market_info_to_field(market_info: MarketInfo<UserId>) -> (String, String, bool) {
+fn market_to_field(market: &Market<UserId>) -> (String, String, bool) {
     (
         format!(
             "__{}__   {}   **{}**_%_",
-            market_info.market_id, market_info.question, market_info.probability
+            market.id,
+            market.question,
+            market.probability()
         ),
         format!(
             "{}Creator: {}\nDescription: {}\n\nPositions:\n{}",
-            match market_info.close_timestamp {
+            match market.close_timestamp {
                 None => String::new(),
                 Some(close_timestamp) =>
                     format!("Closes: <t:{close_timestamp}:R>, <t:{close_timestamp}:F>\n"),
             },
-            Mention::User(market_info.creator),
-            market_info.description,
-            market_info
+            Mention::User(market.creator),
+            market.description,
+            market
                 .num_user_shares
-                .into_iter()
+                .iter()
                 .map(|(user_id, UserShareBalance { kind, quantity })| format!(
                     "{} - {} {}",
-                    Mention::User(user_id),
+                    Mention::User(*user_id),
                     quantity,
                     kind
                 ))
@@ -61,20 +63,14 @@ async fn autocomplete_market(
     economy
         .list_markets()
         .into_iter()
-        .filter_map(
-            |MarketInfo {
-                 market_id,
-                 question,
-                 ..
-             }| {
-                matcher
-                    .fuzzy_match(&question, prefix)
-                    .map(|_| poise::AutocompleteChoice {
-                        name: question,
-                        value: market_id,
-                    })
-            },
-        )
+        .filter_map(|Market { id, question, .. }| {
+            matcher
+                .fuzzy_match(question, prefix)
+                .map(|_| poise::AutocompleteChoice {
+                    name: question.clone(),
+                    value: *id,
+                })
+        })
         .collect()
 }
 
@@ -197,14 +193,15 @@ pub async fn create_market(
         .context("failed parsing close date and time")?;
     let close_timestamp = close_date_and_time.map(|date_time| date_time.timestamp());
     let mut economy = ctx.data().lock().await;
-    let (new_economy, market_info) =
+    let (new_economy, market_id) =
         economy.create_market(ctx.author().id, question, description, close_timestamp)?;
     *economy = new_economy;
+    let market = economy.market(market_id)?;
     ctx.send(|f| {
         f.embed(|f| {
             f.color(Color::GOLD)
                 .title("Created market:")
-                .fields(std::iter::once(market_info_to_field(market_info)))
+                .fields(std::iter::once(market_to_field(market)))
         })
     })
     .await?;
@@ -219,7 +216,7 @@ pub async fn list_markets(ctx: Context<'_>) -> Result<()> {
         f.embed(|f| {
             f.color(Color::DARK_BLUE)
                 .title("Markets")
-                .fields(economy.list_markets().map(market_info_to_field))
+                .fields(economy.list_markets().map(market_to_field))
         })
     })
     .await?;
@@ -236,13 +233,13 @@ pub async fn resolve_market(
     #[description = "Outcome to resolve to"] outcome: ShareKind,
 ) -> Result<()> {
     let mut economy = ctx.data().lock().await;
-    let (new_economy, market_info) = economy.resolve_market(ctx.author().id, market, outcome)?;
+    let (new_economy, market) = economy.resolve_market(ctx.author().id, market, outcome)?;
     *economy = new_economy;
     ctx.send(|f| {
         f.embed(|f| {
             f.color(outcome.color())
                 .title(format!("Resolved market {outcome}:"))
-                .fields(std::iter::once(market_info_to_field(market_info)))
+                .fields(std::iter::once(market_to_field(&market)))
         })
     })
     .await?;
@@ -254,8 +251,8 @@ fn probability_change_string(
     new_economy: &Economy,
     market_id: MarketId,
 ) -> Result<String> {
-    let old_prob = old_economy.market_probability(market_id)?;
-    let new_prob = new_economy.market_probability(market_id)?;
+    let old_prob = old_economy.market(market_id)?.probability();
+    let new_prob = new_economy.market(market_id)?.probability();
     Ok(format!("{old_prob}% → {new_prob}%"))
 }
 
@@ -275,7 +272,7 @@ pub async fn sell(
         economy.sell(ctx.author().id, market, sell_amount)?;
     let prob_change = probability_change_string(&economy, &new_economy, market)?;
     *economy = new_economy;
-    let market_name = economy.market_name(market)?;
+    let market_name = &economy.market(market)?.question;
     ctx.send(|f| {
         f.embed(|f| {
             let f = f
@@ -314,7 +311,7 @@ pub async fn buy(
         economy.buy(ctx.author().id, market, purchase_price, share_kind)?;
     let prob_change = probability_change_string(&economy, &new_economy, market)?;
     *economy = new_economy;
-    let market_name = economy.market_name(market)?;
+    let market_name = &economy.market(market)?.question;
     ctx.send(|f| {
         f.embed(|f| {
             let f = f
