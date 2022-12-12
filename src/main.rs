@@ -5,7 +5,7 @@ mod share_quantity;
 
 use anyhow::Error;
 use poise::futures_util::lock::Mutex;
-use poise::serenity_prelude::{self as serenity, GuildId};
+use poise::serenity_prelude as serenity;
 use std::fs::File;
 
 type Context<'a> = poise::Context<'a, Mutex<Economy>, Error>;
@@ -50,17 +50,7 @@ async fn main() {
         })
         .token(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN"))
         .intents(serenity::GatewayIntents::non_privileged())
-        .setup(|ctx, _ready, framework| {
-            Box::pin(async move {
-                poise::builtins::register_in_guild(
-                    ctx,
-                    &framework.options().commands,
-                    GuildId(848698959282569257),
-                )
-                .await?;
-                Ok(Mutex::new(load_state()))
-            })
-        });
+        .setup(|_ctx, _ready, _framework| Box::pin(async move { Ok(Mutex::new(load_state())) }));
 
     framework.run().await.unwrap();
 }
