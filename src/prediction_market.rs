@@ -91,6 +91,13 @@ impl<UserId: Ord + Clone> Market<UserId> {
             close_timestamp: self.close_timestamp,
         }
     }
+
+    fn is_open(&self) -> bool {
+        match self.close_timestamp {
+            None => true,
+            Some(close_timestamp) => chrono::Local::now().timestamp() < close_timestamp,
+        }
+    }
 }
 
 impl<UserId: Ord + Clone> Economy<UserId> {
@@ -229,12 +236,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             .markets
             .get_mut(&market_id)
             .context("market does not exist")?;
-        if let Some(close_timestamp) = market.close_timestamp {
-            ensure!(
-                chrono::Local::now().timestamp() < close_timestamp,
-                "this market closed"
-            );
-        }
+        ensure!(market.is_open(), "this market closed");
         let product = market.y.0 * market.n.0;
         let shares_sold = match sell_amount {
             None => {
@@ -313,12 +315,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             .markets
             .get_mut(&market_id)
             .context("market does not exist")?;
-        if let Some(close_timestamp) = market.close_timestamp {
-            ensure!(
-                chrono::Local::now().timestamp() < close_timestamp,
-                "this market closed"
-            );
-        }
+        ensure!(market.is_open(), "this market closed");
         let product = market.y * market.n;
         let num_new_shares = ShareQuantity(purchase_price.0);
         market.n += num_new_shares;
