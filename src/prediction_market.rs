@@ -73,7 +73,7 @@ impl<UserId: Ord + Clone> Market<UserId> {
         (p.0 * 100.0) as u8
     }
 
-    fn is_open(&self) -> bool {
+    pub fn is_open(&self) -> bool {
         match self.close_timestamp {
             None => true,
             Some(close_timestamp) => chrono::Local::now().timestamp() < close_timestamp,

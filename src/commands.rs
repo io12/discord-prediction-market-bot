@@ -28,8 +28,10 @@ fn market_to_field(market: &Market<UserId>) -> (String, String, bool) {
             "{}Creator: {}\nDescription: {}\n\nPositions:\n{}",
             match market.close_timestamp {
                 None => String::new(),
-                Some(close_timestamp) =>
-                    format!("Closes: <t:{close_timestamp}:R>, <t:{close_timestamp}:F>\n"),
+                Some(close_timestamp) => format!(
+                    "{}: <t:{close_timestamp}:R>, <t:{close_timestamp}:F>\n",
+                    if market.is_open() { "Closes" } else { "Closed" }
+                ),
             },
             Mention::User(market.creator),
             market.description,
