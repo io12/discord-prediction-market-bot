@@ -381,6 +381,13 @@ async fn autocomplete_tz(
         .collect()
 }
 
+/// Register slash commands
+#[poise::command(slash_command, prefix_command, owners_only)]
+pub async fn register(ctx: Context<'_>) -> Result<()> {
+    poise::builtins::register_application_commands_buttons(ctx).await?;
+    Ok(())
+}
+
 /// Test time input
 #[poise::command(slash_command, prefix_command)]
 pub async fn input_time(

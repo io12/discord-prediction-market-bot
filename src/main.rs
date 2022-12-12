@@ -41,6 +41,7 @@ async fn main() {
                     buy(),
                     sell(),
                     tip(),
+                    register(),
                     input_time(),
                 ]
             },
