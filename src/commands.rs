@@ -2,7 +2,7 @@ use crate::{
     money::Money,
     prediction_market::{MarketId, MarketInfo, ShareKind, UserShareBalance},
     share_quantity::ShareQuantity,
-    Context,
+    Context, Economy,
 };
 use anyhow::{Context as AnyhowContext, Result};
 use poise::serenity_prelude::{Color, Mention, Mentionable, User, UserId};
@@ -249,6 +249,16 @@ pub async fn resolve_market(
     Ok(())
 }
 
+fn probability_change_string(
+    old_economy: &Economy,
+    new_economy: &Economy,
+    market_id: MarketId,
+) -> Result<String> {
+    let old_prob = old_economy.market_probability(market_id)?;
+    let new_prob = new_economy.market_probability(market_id)?;
+    Ok(format!("{old_prob}% → {new_prob}%"))
+}
+
 /// Sell your shares
 #[poise::command(slash_command, prefix_command)]
 pub async fn sell(
@@ -263,9 +273,8 @@ pub async fn sell(
     let mut economy = ctx.data().lock().await;
     let (new_economy, num_shares_sold, sale_price) =
         economy.sell(ctx.author().id, market, sell_amount)?;
-    let old_prob = economy.market_probability(market)?;
+    let prob_change = probability_change_string(&economy, &new_economy, market)?;
     *economy = new_economy;
-    let new_prob = economy.market_probability(market)?;
     let market_name = economy.market_name(market)?;
     ctx.send(|f| {
         f.embed(|f| {
@@ -274,11 +283,7 @@ pub async fn sell(
                 .title("Sell")
                 .field("Shares sold", num_shares_sold, true)
                 .field("Sale price", sale_price, true)
-                .field(
-                    "Probability change",
-                    format!("{old_prob}% → {new_prob}%"),
-                    true,
-                )
+                .field("Probability change", prob_change, true)
                 .field("Market", market_name, true);
             match reason {
                 None => f,
@@ -307,9 +312,8 @@ pub async fn buy(
     let mut economy = ctx.data().lock().await;
     let (new_economy, shares_received) =
         economy.buy(ctx.author().id, market, purchase_price, share_kind)?;
-    let old_prob = economy.market_probability(market)?;
+    let prob_change = probability_change_string(&economy, &new_economy, market)?;
     *economy = new_economy;
-    let new_prob = economy.market_probability(market)?;
     let market_name = economy.market_name(market)?;
     ctx.send(|f| {
         f.embed(|f| {
@@ -318,11 +322,7 @@ pub async fn buy(
                 .title(format!("Buy {share_kind}"))
                 .field("Shares bought", shares_received, true)
                 .field("Buy price", purchase_price, true)
-                .field(
-                    "Probability change",
-                    format!("{old_prob}% → {new_prob}%"),
-                    true,
-                )
+                .field("Probability change", prob_change, true)
                 .field(
                     format!("Profit if {share_kind}"),
                     format!(
