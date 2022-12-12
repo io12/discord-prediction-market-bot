@@ -47,12 +47,16 @@ fn market_info_to_field(market_info: MarketInfo<UserId>) -> (String, String, boo
     )
 }
 
+fn make_matcher() -> impl fuzzy_matcher::FuzzyMatcher {
+    fuzzy_matcher::skim::SkimMatcherV2::default().ignore_case()
+}
+
 async fn autocomplete_market(
     ctx: Context<'_>,
     prefix: &str,
 ) -> Vec<poise::AutocompleteChoice<MarketId>> {
     use fuzzy_matcher::FuzzyMatcher;
-    let matcher = fuzzy_matcher::skim::SkimMatcherV2::default();
+    let matcher = make_matcher();
     let economy = ctx.data().lock().await;
     economy
         .list_markets()
@@ -367,7 +371,7 @@ async fn autocomplete_tz(
     prefix: &str,
 ) -> Vec<poise::AutocompleteChoice<&'static str>> {
     use fuzzy_matcher::FuzzyMatcher;
-    let matcher = fuzzy_matcher::skim::SkimMatcherV2::default();
+    let matcher = make_matcher();
     chrono_tz::TZ_VARIANTS
         .into_iter()
         .filter_map(|tz| {
