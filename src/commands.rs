@@ -270,7 +270,7 @@ pub async fn sell(
 ) -> Result<()> {
     let sell_amount = sell_amount.map(ShareQuantity);
     let mut economy = ctx.data().lock().await;
-    let (new_economy, num_shares_sold, sale_price) =
+    let (new_economy, shares_sold, sale_price) =
         economy.sell(ctx.author().id, market, sell_amount)?;
     let prob_change = probability_change_string(&economy, &new_economy, market)?;
     *economy = new_economy;
@@ -279,8 +279,8 @@ pub async fn sell(
         f.embed(|f| {
             let f = f
                 .color(Color::BLITZ_BLUE)
-                .title("Sell")
-                .field("Shares sold", num_shares_sold, true)
+                .title(format!("Sell {}", shares_sold.kind))
+                .field("Shares sold", shares_sold, true)
                 .field("Sale price", sale_price, true)
                 .field("Probability change", prob_change, true)
                 .field("Market", market_name, true);

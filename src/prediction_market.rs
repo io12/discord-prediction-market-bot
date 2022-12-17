@@ -42,7 +42,8 @@ pub enum ShareKind {
     No,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, derive_more::Display)]
+#[display(fmt = "{quantity} {kind}")]
 pub struct UserShareBalance {
     pub kind: ShareKind,
     pub quantity: ShareQuantity,
@@ -209,7 +210,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         calling_user: UserId,
         market_id: MarketId,
         sell_amount: Option<ShareQuantity>,
-    ) -> Result<(Economy<UserId>, ShareQuantity, Money)> {
+    ) -> Result<(Economy<UserId>, UserShareBalance, Money)> {
         let mut new_economy = self.clone();
         let market = new_economy
             .markets
@@ -269,7 +270,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         );
         let user_money = new_economy.balance_mut(calling_user);
         *user_money += Money(sale_price);
-        Ok((new_economy, shares_sold.quantity, Money(sale_price)))
+        Ok((new_economy, shares_sold, Money(sale_price)))
     }
 
     pub fn buy(
