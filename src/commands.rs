@@ -76,6 +76,38 @@ async fn autocomplete_market(
         .collect()
 }
 
+async fn autocomplete_users_markets(
+    ctx: Context<'_>,
+    prefix: &str,
+) -> Vec<poise::AutocompleteChoice<MarketId>> {
+    use fuzzy_matcher::FuzzyMatcher;
+    let matcher = make_matcher();
+    let economy = ctx.data().lock().await;
+    economy
+        .list_markets()
+        .into_iter()
+        .filter_map(
+            |Market {
+                 id,
+                 creator,
+                 question,
+                 ..
+             }| {
+                if *creator == ctx.author().id {
+                    matcher
+                        .fuzzy_match(question, prefix)
+                        .map(|_| poise::AutocompleteChoice {
+                            name: question.clone(),
+                            value: *id,
+                        })
+                } else {
+                    None
+                }
+            },
+        )
+        .collect()
+}
+
 /// Get help on how to use this bot
 #[poise::command(slash_command, prefix_command)]
 pub async fn help(
@@ -230,7 +262,7 @@ pub async fn list_markets(ctx: Context<'_>) -> Result<()> {
 pub async fn resolve_market(
     ctx: Context<'_>,
     #[description = "Market to resolve"]
-    #[autocomplete = "autocomplete_market"]
+    #[autocomplete = "autocomplete_users_markets"]
     market: MarketId,
     #[description = "Outcome to resolve to"] outcome: ShareKind,
 ) -> Result<()> {
