@@ -1,3 +1,5 @@
+use std::iter::once;
+
 use crate::{
     money::Money,
     prediction_market::{Market, MarketId, ShareKind, UserShareBalance},
@@ -235,7 +237,7 @@ pub async fn create_market(
         f.embed(|f| {
             f.color(Color::GOLD)
                 .title("Created market:")
-                .fields(std::iter::once(market_to_field(market)))
+                .fields(once(market_to_field(market)))
         })
     })
     .await?;
@@ -251,6 +253,27 @@ pub async fn list_markets(ctx: Context<'_>) -> Result<()> {
             f.color(Color::DARK_BLUE)
                 .title("Markets")
                 .fields(economy.list_markets().map(market_to_field))
+        })
+    })
+    .await?;
+    Ok(())
+}
+
+/// Show a market
+#[poise::command(slash_command, prefix_command)]
+pub async fn show_market(
+    ctx: Context<'_>,
+    #[description = "Market to show"]
+    #[autocomplete = "autocomplete_market"]
+    market: MarketId,
+) -> Result<()> {
+    let economy = ctx.data().lock().await;
+    let market = economy.market(market)?;
+    ctx.send(|f| {
+        f.embed(|f| {
+            f.color(Color::DARK_BLUE)
+                .title("Market")
+                .fields(once(market_to_field(market)))
         })
     })
     .await?;
@@ -273,7 +296,7 @@ pub async fn resolve_market(
         f.embed(|f| {
             f.color(outcome.color())
                 .title(format!("Resolved market {outcome}:"))
-                .fields(std::iter::once(market_to_field(&market)))
+                .fields(once(market_to_field(&market)))
         })
     })
     .await?;

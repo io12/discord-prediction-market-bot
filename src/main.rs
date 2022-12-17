@@ -37,6 +37,7 @@ async fn main() {
                     portfolio(),
                     create_market(),
                     list_markets(),
+                    show_market(),
                     resolve_market(),
                     buy(),
                     sell(),
