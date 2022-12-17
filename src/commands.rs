@@ -229,7 +229,7 @@ pub async fn list_markets(ctx: Context<'_>) -> Result<()> {
 #[poise::command(slash_command, prefix_command)]
 pub async fn resolve_market(
     ctx: Context<'_>,
-    #[description = "ID of market to resolve"]
+    #[description = "Market to resolve"]
     #[autocomplete = "autocomplete_market"]
     market: MarketId,
     #[description = "Outcome to resolve to"] outcome: ShareKind,
@@ -262,7 +262,7 @@ fn probability_change_string(
 #[poise::command(slash_command, prefix_command)]
 pub async fn sell(
     ctx: Context<'_>,
-    #[description = "ID of market to sell shares in"]
+    #[description = "Market to sell shares in"]
     #[autocomplete = "autocomplete_market"]
     market: MarketId,
     #[description = "Amount to sell (default is all of your shares)"] sell_amount: Option<f64>,
@@ -298,7 +298,7 @@ pub async fn sell(
 #[poise::command(slash_command, prefix_command)]
 pub async fn buy(
     ctx: Context<'_>,
-    #[description = "ID of market to buy shares in"]
+    #[description = "Market to buy shares in"]
     #[autocomplete = "autocomplete_market"]
     market: MarketId,
     #[description = "Amount of money to use for buying shares"]
