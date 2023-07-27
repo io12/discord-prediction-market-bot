@@ -2,7 +2,7 @@ use std::iter::once;
 
 use crate::{
     money::Money,
-    prediction_market::{Market, MarketId, ShareKind, UserShareBalance},
+    prediction_market::{Market, MarketId, ShareKind, ShareKindAndQuantity},
     share_quantity::ShareQuantity,
     Context, Economy,
 };
@@ -40,12 +40,14 @@ fn market_to_field(market: &Market<UserId>) -> (String, String, bool) {
             market
                 .num_user_shares
                 .iter()
-                .map(|(user_id, UserShareBalance { kind, quantity })| format!(
-                    "{} - {} {}",
-                    Mention::User(*user_id),
-                    quantity,
-                    kind
-                ))
+                .map(
+                    |(user_id, ShareKindAndQuantity { kind, quantity })| format!(
+                        "{} - {} {}",
+                        Mention::User(*user_id),
+                        quantity,
+                        kind
+                    )
+                )
                 .collect::<Vec<String>>()
                 .join("\n")
         ),

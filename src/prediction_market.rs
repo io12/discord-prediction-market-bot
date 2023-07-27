@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use anyhow::{bail, ensure, Context, Result};
 use im::ordmap::OrdMap;
 use poise::ChoiceParameter;
@@ -11,27 +13,28 @@ const USER_START_BALANCE: Money = Money(1000.0);
 const MARKET_CREATION_COST: Money = Money(50.0);
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct Economy<UserId: Ord + Clone> {
+pub struct Economy<UserId: Ord + Clone + Display> {
     next_market_id: MarketId,
     user_money: OrdMap<UserId, Money>,
     markets: OrdMap<MarketId, Market<UserId>>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct Market<UserId: Ord + Clone> {
+pub struct Market<UserId: Ord + Clone + Display> {
     pub id: MarketId,
     pub creator: UserId,
     pub question: String,
     pub description: String,
     y: ShareQuantity,
     n: ShareQuantity,
-    pub num_user_shares: OrdMap<UserId, UserShareBalance>,
+    pub num_user_shares: OrdMap<UserId, ShareKindAndQuantity>,
+    pub transaction_history: Option<Vec<TransactionInfo<UserId>>>,
     pub close_timestamp: Option<i64>,
 }
 
 pub struct Portfolio {
     pub cash: Money,
-    pub market_positions: Vec<(String, UserShareBalance)>,
+    pub market_positions: Vec<(String, ShareKindAndQuantity)>,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize, ChoiceParameter)]
@@ -42,14 +45,32 @@ pub enum ShareKind {
     No,
 }
 
-#[derive(Clone, Serialize, Deserialize, derive_more::Display)]
+#[derive(Copy, Clone, Serialize, Deserialize, derive_more::Display)]
+enum TransactionKind {
+    #[display(fmt = "BUY")]
+    Buy,
+    #[display(fmt = "SELL")]
+    Sell,
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, derive_more::Display)]
+#[display(fmt = "{user} {kind} {shares} for {money} | {new_probability}%")]
+pub struct TransactionInfo<UserId: Display> {
+    user: UserId,
+    kind: TransactionKind,
+    shares: ShareKindAndQuantity,
+    money: Money,
+    new_probability: u8,
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, derive_more::Display)]
 #[display(fmt = "{quantity} {kind}")]
-pub struct UserShareBalance {
+pub struct ShareKindAndQuantity {
     pub kind: ShareKind,
     pub quantity: ShareQuantity,
 }
 
-impl<UserId: Ord + Clone> Market<UserId> {
+impl<UserId: Ord + Clone + Display> Market<UserId> {
     fn new(
         id: MarketId,
         creator: UserId,
@@ -65,6 +86,7 @@ impl<UserId: Ord + Clone> Market<UserId> {
             y: ShareQuantity(MARKET_CREATION_COST.0),
             n: ShareQuantity(MARKET_CREATION_COST.0),
             num_user_shares: OrdMap::new(),
+            transaction_history: Some(Vec::new()),
             close_timestamp,
         }
     }
@@ -82,7 +104,7 @@ impl<UserId: Ord + Clone> Market<UserId> {
     }
 }
 
-impl<UserId: Ord + Clone> Economy<UserId> {
+impl<UserId: Ord + Clone + Display> Economy<UserId> {
     pub fn new() -> Self {
         Self {
             next_market_id: 0,
@@ -125,7 +147,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
                     market
                         .num_user_shares
                         .get(&user)
-                        .map(|user_shares| (market.question.clone(), user_shares.clone()))
+                        .map(|user_shares| (market.question.clone(), *user_shares))
                 })
                 .collect(),
         }
@@ -210,7 +232,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         calling_user: UserId,
         market_id: MarketId,
         sell_amount: Option<ShareQuantity>,
-    ) -> Result<(Economy<UserId>, UserShareBalance, Money)> {
+    ) -> Result<(Economy<UserId>, ShareKindAndQuantity, Money)> {
         let mut new_economy = self.clone();
         let market = new_economy
             .markets
@@ -220,11 +242,10 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         let product = market.y.0 * market.n.0;
         let shares_sold = match sell_amount {
             None => {
-                let user_shares = market
+                let user_shares = *market
                     .num_user_shares
                     .get(&calling_user)
-                    .context("you have no shares to sell")?
-                    .clone();
+                    .context("you have no shares to sell")?;
                 market.num_user_shares.remove(&calling_user);
                 user_shares
             }
@@ -243,7 +264,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
                     !num_shares.0.is_sign_negative(),
                     "you are trying to sell more shares than you have"
                 );
-                UserShareBalance {
+                ShareKindAndQuantity {
                     kind: user_shares.kind,
                     quantity: num_shares_to_sell,
                 }
@@ -268,9 +289,20 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             !market.y.0.is_sign_negative(),
             "underflow balancing market YES shares"
         );
+        let sale_price = Money(sale_price);
+        let new_probability = market.probability();
+        if let Some(hist) = &mut market.transaction_history {
+            hist.push(TransactionInfo {
+                user: calling_user.clone(),
+                kind: TransactionKind::Sell,
+                shares: shares_sold,
+                money: sale_price,
+                new_probability,
+            });
+        }
         let user_money = new_economy.balance_mut(calling_user);
-        *user_money += Money(sale_price);
-        Ok((new_economy, shares_sold, Money(sale_price)))
+        *user_money += sale_price;
+        Ok((new_economy, shares_sold, sale_price))
     }
 
     pub fn buy(
@@ -323,11 +355,11 @@ impl<UserId: Ord + Clone> Economy<UserId> {
                 bought_shares
             }
         };
-        let new_user_shares = UserShareBalance {
+        let new_user_shares = ShareKindAndQuantity {
             kind: share_kind,
             quantity: bought_shares,
         };
-        match market.num_user_shares.entry(calling_user) {
+        match market.num_user_shares.entry(calling_user.clone()) {
             im::ordmap::Entry::Vacant(vacant_entry) => {
                 vacant_entry.insert(new_user_shares);
             }
@@ -339,6 +371,16 @@ impl<UserId: Ord + Clone> Economy<UserId> {
                     bail!("You already have shares of the other type. You should sell those first. TODO: automatically do this")
                 }
             }
+        }
+        let new_probability = market.probability();
+        if let Some(hist) = &mut market.transaction_history {
+            hist.push(TransactionInfo {
+                user: calling_user,
+                kind: TransactionKind::Buy,
+                shares: new_user_shares,
+                money: purchase_price,
+                new_probability,
+            });
         }
         Ok((new_economy, bought_shares))
     }
