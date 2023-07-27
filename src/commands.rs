@@ -2,7 +2,7 @@ use std::iter::once;
 
 use crate::{
     money::Money,
-    prediction_market::{Market, MarketId, ShareKind, ShareKindAndQuantity},
+    prediction_market::{Market, MarketId, ShareKind, TransactionInfo},
     share_quantity::ShareQuantity,
     Context, Economy,
 };
@@ -27,7 +27,7 @@ fn market_to_field(market: &Market<UserId>) -> (String, String, bool) {
             market.probability()
         ),
         format!(
-            "{}Creator: {}\nDescription: {}\n\nPositions:\n{}",
+            "{}Creator: {}\nDescription: {}\n\nPositions:\n{}\n\nTransactions:\n{}",
             match market.close_timestamp {
                 None => String::new(),
                 Some(close_timestamp) => format!(
@@ -40,16 +40,32 @@ fn market_to_field(market: &Market<UserId>) -> (String, String, bool) {
             market
                 .num_user_shares
                 .iter()
-                .map(
-                    |(user_id, ShareKindAndQuantity { kind, quantity })| format!(
-                        "{} - {} {}",
-                        Mention::User(*user_id),
-                        quantity,
-                        kind
-                    )
-                )
+                .map(|(user_id, kind_quantity)| format!(
+                    "{} - {kind_quantity}",
+                    Mention::User(*user_id)
+                ))
                 .collect::<Vec<String>>()
-                .join("\n")
+                .join("\n"),
+            match &market.transaction_history {
+                Some(hist) => hist
+                    .iter()
+                    .map(
+                        |TransactionInfo {
+                             user,
+                             kind,
+                             shares,
+                             money,
+                             new_probability,
+                         }| format!(
+                            "{} {kind} {shares} for {money} | {new_probability}%",
+                            Mention::User(*user)
+                        )
+                    )
+                    .collect::<Vec<String>>()
+                    .join("\n"),
+                None =>
+                    "_Market was created before transaction history was implemented_".to_string(),
+            }
         ),
         false,
     )
@@ -184,12 +200,8 @@ pub async fn portfolio(
                     portfolio
                         .market_positions
                         .into_iter()
-                        .map(|(question, position)| {
-                            (
-                                question,
-                                format!("{} {} shares", position.quantity, position.kind),
-                                false,
-                            )
+                        .map(|(question, kind_quantity)| {
+                            (question, format!("{kind_quantity} shares"), false)
                         }),
                 )
         })

@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use anyhow::{bail, ensure, Context, Result};
 use im::ordmap::OrdMap;
 use poise::ChoiceParameter;
@@ -13,14 +11,14 @@ const USER_START_BALANCE: Money = Money(1000.0);
 const MARKET_CREATION_COST: Money = Money(50.0);
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct Economy<UserId: Ord + Clone + Display> {
+pub struct Economy<UserId: Ord + Clone> {
     next_market_id: MarketId,
     user_money: OrdMap<UserId, Money>,
     markets: OrdMap<MarketId, Market<UserId>>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct Market<UserId: Ord + Clone + Display> {
+pub struct Market<UserId: Ord + Clone> {
     pub id: MarketId,
     pub creator: UserId,
     pub question: String,
@@ -46,21 +44,20 @@ pub enum ShareKind {
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, derive_more::Display)]
-enum TransactionKind {
+pub enum TransactionKind {
     #[display(fmt = "BUY")]
     Buy,
     #[display(fmt = "SELL")]
     Sell,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, derive_more::Display)]
-#[display(fmt = "{user} {kind} {shares} for {money} | {new_probability}%")]
-pub struct TransactionInfo<UserId: Display> {
-    user: UserId,
-    kind: TransactionKind,
-    shares: ShareKindAndQuantity,
-    money: Money,
-    new_probability: u8,
+#[derive(Copy, Clone, Serialize, Deserialize)]
+pub struct TransactionInfo<UserId> {
+    pub user: UserId,
+    pub kind: TransactionKind,
+    pub shares: ShareKindAndQuantity,
+    pub money: Money,
+    pub new_probability: u8,
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, derive_more::Display)]
@@ -70,7 +67,7 @@ pub struct ShareKindAndQuantity {
     pub quantity: ShareQuantity,
 }
 
-impl<UserId: Ord + Clone + Display> Market<UserId> {
+impl<UserId: Ord + Clone> Market<UserId> {
     fn new(
         id: MarketId,
         creator: UserId,
@@ -104,7 +101,7 @@ impl<UserId: Ord + Clone + Display> Market<UserId> {
     }
 }
 
-impl<UserId: Ord + Clone + Display> Economy<UserId> {
+impl<UserId: Ord + Clone> Economy<UserId> {
     pub fn new() -> Self {
         Self {
             next_market_id: 0,
