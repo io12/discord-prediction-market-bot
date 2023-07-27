@@ -66,7 +66,6 @@ async fn autocomplete_market(
     let economy = ctx.data().lock().await;
     economy
         .list_markets()
-        .into_iter()
         .filter_map(|Market { id, question, .. }| {
             matcher
                 .fuzzy_match(question, prefix)
@@ -87,7 +86,6 @@ async fn autocomplete_users_markets(
     let economy = ctx.data().lock().await;
     economy
         .list_markets()
-        .into_iter()
         .filter_map(
             |Market {
                  id,
