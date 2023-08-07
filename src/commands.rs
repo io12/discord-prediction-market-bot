@@ -2,7 +2,7 @@ use std::iter::once;
 
 use crate::{
     money::Money,
-    prediction_market::{Market, MarketId, ShareKind, TransactionInfo},
+    prediction_market::{Market, MarketId, ResolveOutcome, ShareKind, TransactionInfo},
     share_quantity::ShareQuantity,
     Context, Economy,
 };
@@ -14,6 +14,16 @@ impl ShareKind {
         match self {
             Self::Yes => Color::DARK_GREEN,
             Self::No => Color::RED,
+        }
+    }
+}
+
+impl ResolveOutcome {
+    fn color(&self) -> Color {
+        match self {
+            ResolveOutcome::Yes => ShareKind::Yes.color(),
+            ResolveOutcome::No => ShareKind::No.color(),
+            ResolveOutcome::Undo => Color::LIGHTER_GREY,
         }
     }
 }
@@ -299,7 +309,7 @@ pub async fn resolve_market(
     #[description = "Market to resolve"]
     #[autocomplete = "autocomplete_users_markets"]
     market: MarketId,
-    #[description = "Outcome to resolve to"] outcome: ShareKind,
+    #[description = "Outcome to resolve to"] outcome: ResolveOutcome,
 ) -> Result<()> {
     let mut economy = ctx.data().lock().await;
     let (new_economy, market) = economy.resolve_market(ctx.author().id, market, outcome)?;

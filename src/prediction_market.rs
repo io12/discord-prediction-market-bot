@@ -43,6 +43,17 @@ pub enum ShareKind {
     No,
 }
 
+#[derive(Copy, Clone, ChoiceParameter)]
+pub enum ResolveOutcome {
+    #[name = "YES"]
+    Yes,
+    #[name = "NO"]
+    No,
+    // Undo all the trades made in the market
+    #[name = "UNDO"]
+    Undo,
+}
+
 #[derive(Copy, Clone, Serialize, Deserialize, derive_more::Display)]
 pub enum TransactionKind {
     #[display(fmt = "BUY")]
@@ -193,7 +204,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         &self,
         calling_user: UserId,
         market_id: MarketId,
-        outcome: ShareKind,
+        outcome: ResolveOutcome,
     ) -> Result<(Economy<UserId>, Market<UserId>)> {
         let market = self
             .markets
@@ -204,6 +215,19 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             "this is someone else's market"
         );
 
+        match outcome {
+            ResolveOutcome::Yes => self.resolve_market_payout(calling_user, market, ShareKind::Yes),
+            ResolveOutcome::No => self.resolve_market_payout(calling_user, market, ShareKind::No),
+            ResolveOutcome::Undo => self.resolve_market_undo(calling_user, market),
+        }
+    }
+
+    fn resolve_market_payout(
+        &self,
+        calling_user: UserId,
+        market: &Market<UserId>,
+        outcome: ShareKind,
+    ) -> Result<(Economy<UserId>, Market<UserId>)> {
         let mut new_economy = self.clone();
 
         for (user, share_balance) in market.num_user_shares.iter() {
@@ -219,7 +243,32 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             ShareKind::Yes => *caller_money += Money(market.y.0),
         }
 
-        let market = new_economy.markets.remove(&market_id).context("market does not exist, after we already accessed it?? this definitely shouldn't happen")?;
+        let market = new_economy.markets.remove(&market.id).context("market does not exist, after we already accessed it?? this definitely shouldn't happen")?;
+
+        Ok((new_economy, market))
+    }
+
+    fn resolve_market_undo(
+        &self,
+        calling_user: UserId,
+        market: &Market<UserId>,
+    ) -> Result<(Economy<UserId>, Market<UserId>)> {
+        let mut new_economy = self.clone();
+
+        *new_economy.balance_mut(calling_user) += MARKET_CREATION_COST;
+        let hist = market
+            .transaction_history
+            .as_ref()
+            .context("market was created before transaction history was implemented")?;
+        for transaction in hist {
+            let sign = match transaction.kind {
+                TransactionKind::Buy => 1.0,
+                TransactionKind::Sell => -1.0,
+            };
+            *new_economy.balance_mut(transaction.user.clone()) += Money(transaction.money.0 * sign);
+        }
+
+        let market = new_economy.markets.remove(&market.id).context("market does not exist, after we already accessed it?? this definitely shouldn't happen")?;
 
         Ok((new_economy, market))
     }
