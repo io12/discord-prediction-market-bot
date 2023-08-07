@@ -392,8 +392,9 @@ pub async fn buy(
                 .field(
                     format!("Profit if {share_kind}"),
                     format!(
-                        "+{:.0}%",
-                        (shares_received.0 / purchase_price.0 - 1.0) * 100.0
+                        "+{} (+{:.0}%)",
+                        Money(shares_received.0 - purchase_price.0),
+                        (shares_received.0 / purchase_price.0 - 1.0) * 100.0,
                     ),
                     true,
                 )
