@@ -1,5 +1,3 @@
-use std::iter::once;
-
 use crate::{
     money::Money,
     prediction_market::{Market, MarketId, ResolveOutcome, ShareKind, TransactionInfo},
@@ -28,7 +26,15 @@ impl ResolveOutcome {
     }
 }
 
-fn market_to_field(market: &Market<UserId>) -> (String, String, bool) {
+fn market_to_brief_field(market: &Market<UserId>) -> (String, String, bool) {
+    let creator = Mention::User(market.creator);
+    let close_text = match market.close_timestamp {
+        None => String::new(),
+        Some(close_timestamp) => format!(
+            ", {}: <t:{close_timestamp}:R>, <t:{close_timestamp}:F>\n",
+            if market.is_open() { "Closes" } else { "Closed" }
+        ),
+    };
     (
         format!(
             "__{}__   {}   **{}**_%_",
@@ -36,26 +42,29 @@ fn market_to_field(market: &Market<UserId>) -> (String, String, bool) {
             market.question,
             market.probability()
         ),
-        format!(
-            "{}Creator: {}\nDescription: {}\n\nPositions:\n{}\n\nTransactions:\n{}",
-            match market.close_timestamp {
-                None => String::new(),
-                Some(close_timestamp) => format!(
-                    "{}: <t:{close_timestamp}:R>, <t:{close_timestamp}:F>\n",
-                    if market.is_open() { "Closes" } else { "Closed" }
-                ),
-            },
-            Mention::User(market.creator),
-            market.description,
+        format!("{creator}{close_text}"),
+        false,
+    )
+}
+
+fn market_to_descriptive_fields(market: &Market<UserId>) -> [(String, String, bool); 4] {
+    [
+        market_to_brief_field(market),
+        ("Description".into(), market.description.clone(), false),
+        (
+            "Positions".into(),
             market
                 .num_user_shares
                 .iter()
-                .map(|(user_id, kind_quantity)| format!(
-                    "{} - {kind_quantity}",
-                    Mention::User(*user_id)
-                ))
+                .map(|(user_id, kind_quantity)| {
+                    format!("{} - {kind_quantity}", Mention::User(*user_id))
+                })
                 .collect::<Vec<String>>()
                 .join("\n"),
+            false,
+        ),
+        (
+            "Transactions".into(),
             match &market.transaction_history {
                 Some(hist) => hist
                     .iter()
@@ -66,19 +75,22 @@ fn market_to_field(market: &Market<UserId>) -> (String, String, bool) {
                              shares,
                              money,
                              new_probability,
-                         }| format!(
-                            "{} {kind} {shares} for {money} | {new_probability}%",
-                            Mention::User(*user)
-                        )
+                         }| {
+                            format!(
+                                "{} {kind} {shares} for {money} | {new_probability}%",
+                                Mention::User(*user)
+                            )
+                        },
                     )
                     .collect::<Vec<String>>()
                     .join("\n"),
-                None =>
-                    "_Market was created before transaction history was implemented_".to_string(),
-            }
+                None => {
+                    "_Market was created before transaction history was implemented_".to_string()
+                }
+            },
+            false,
         ),
-        false,
-    )
+    ]
 }
 
 fn make_matcher() -> impl fuzzy_matcher::FuzzyMatcher {
@@ -259,7 +271,7 @@ pub async fn create_market(
         f.embed(|f| {
             f.color(Color::GOLD)
                 .title("Created market:")
-                .fields(once(market_to_field(market)))
+                .fields(market_to_descriptive_fields(market))
         })
     })
     .await?;
@@ -274,7 +286,7 @@ pub async fn list_markets(ctx: Context<'_>) -> Result<()> {
         f.embed(|f| {
             f.color(Color::DARK_BLUE)
                 .title("Markets")
-                .fields(economy.list_markets().map(market_to_field))
+                .fields(economy.list_markets().map(market_to_brief_field))
         })
     })
     .await?;
@@ -295,7 +307,7 @@ pub async fn show_market(
         f.embed(|f| {
             f.color(Color::DARK_BLUE)
                 .title("Market")
-                .fields(once(market_to_field(market)))
+                .fields(market_to_descriptive_fields(market))
         })
     })
     .await?;
@@ -318,7 +330,7 @@ pub async fn resolve_market(
         f.embed(|f| {
             f.color(outcome.color())
                 .title(format!("Resolved market {outcome}:"))
-                .fields(once(market_to_field(&market)))
+                .fields(market_to_descriptive_fields(&market))
         })
     })
     .await?;
