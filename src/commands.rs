@@ -31,7 +31,7 @@ fn market_to_brief_field(market: &Market<UserId>) -> (String, String, bool) {
     let close_text = match market.close_timestamp {
         None => String::new(),
         Some(close_timestamp) => format!(
-            "{}: <t:{close_timestamp}:R>, <t:{close_timestamp}:F>\n",
+            "\n{} <t:{close_timestamp}:R>, <t:{close_timestamp}:F>",
             if market.is_open() { "Closes" } else { "Closed" }
         ),
     };
@@ -42,7 +42,7 @@ fn market_to_brief_field(market: &Market<UserId>) -> (String, String, bool) {
             market.question,
             market.probability()
         ),
-        format!("{close_text}{creator}"),
+        format!("{creator}{close_text}"),
         false,
     )
 }
