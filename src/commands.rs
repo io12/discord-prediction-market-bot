@@ -47,47 +47,45 @@ fn market_to_brief_field(market: &Market<UserId>) -> (String, String, bool) {
     )
 }
 
+fn market_positions_string(market: &Market<UserId>) -> String {
+    market
+        .num_user_shares
+        .iter()
+        .map(|(user_id, kind_quantity)| format!("{} - {kind_quantity}", Mention::User(*user_id)))
+        .collect::<Vec<String>>()
+        .join("\n")
+}
+
+fn market_transactions_string(market: &Market<UserId>) -> String {
+    match &market.transaction_history {
+        Some(hist) => hist
+            .iter()
+            .map(
+                |TransactionInfo {
+                     user,
+                     kind,
+                     shares,
+                     money,
+                     new_probability,
+                 }| {
+                    let user = Mention::User(*user);
+                    format!("{user} {kind} {shares} for {money} | {new_probability}%")
+                },
+            )
+            .collect::<Vec<String>>()
+            .join("\n"),
+        None => "_Market was created before transaction history was implemented_".to_string(),
+    }
+}
+
 fn market_to_descriptive_fields(market: &Market<UserId>) -> [(String, String, bool); 4] {
     [
         market_to_brief_field(market),
         ("Description".into(), market.description.clone(), false),
-        (
-            "Positions".into(),
-            market
-                .num_user_shares
-                .iter()
-                .map(|(user_id, kind_quantity)| {
-                    format!("{} - {kind_quantity}", Mention::User(*user_id))
-                })
-                .collect::<Vec<String>>()
-                .join("\n"),
-            false,
-        ),
+        ("Positions".into(), market_positions_string(market), false),
         (
             "Transactions".into(),
-            match &market.transaction_history {
-                Some(hist) => hist
-                    .iter()
-                    .map(
-                        |TransactionInfo {
-                             user,
-                             kind,
-                             shares,
-                             money,
-                             new_probability,
-                         }| {
-                            format!(
-                                "{} {kind} {shares} for {money} | {new_probability}%",
-                                Mention::User(*user)
-                            )
-                        },
-                    )
-                    .collect::<Vec<String>>()
-                    .join("\n"),
-                None => {
-                    "_Market was created before transaction history was implemented_".to_string()
-                }
-            },
+            market_transactions_string(market),
             false,
         ),
     ]
