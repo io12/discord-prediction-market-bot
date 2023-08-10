@@ -265,8 +265,7 @@ pub async fn create_market(
     let mut economy = ctx.data().lock().await;
     let (new_economy, market_id) =
         economy.create_market(ctx.author().id, question, description, close_timestamp)?;
-    *economy = new_economy;
-    let market = economy.market(market_id)?;
+    let market = new_economy.market(market_id)?;
     ctx.send(|f| {
         f.embed(|f| {
             f.color(Color::GOLD)
@@ -275,6 +274,7 @@ pub async fn create_market(
         })
     })
     .await?;
+    *economy = new_economy;
     Ok(())
 }
 
@@ -325,7 +325,6 @@ pub async fn resolve_market(
 ) -> Result<()> {
     let mut economy = ctx.data().lock().await;
     let (new_economy, market) = economy.resolve_market(ctx.author().id, market, outcome)?;
-    *economy = new_economy;
     ctx.send(|f| {
         f.embed(|f| {
             f.color(outcome.color())
@@ -334,6 +333,7 @@ pub async fn resolve_market(
         })
     })
     .await?;
+    *economy = new_economy;
     Ok(())
 }
 
@@ -362,7 +362,6 @@ pub async fn sell(
     let (new_economy, shares_sold, sale_price) =
         economy.sell(ctx.author().id, market, sell_amount)?;
     let prob_change = probability_change_string(&economy, &new_economy, market)?;
-    *economy = new_economy;
     let market_name = &economy.market(market)?.question;
     ctx.send(|f| {
         f.embed(|f| {
@@ -380,6 +379,7 @@ pub async fn sell(
         })
     })
     .await?;
+    *economy = new_economy;
     Ok(())
 }
 
@@ -401,7 +401,6 @@ pub async fn buy(
     let (new_economy, shares_received) =
         economy.buy(ctx.author().id, market, purchase_price, share_kind)?;
     let prob_change = probability_change_string(&economy, &new_economy, market)?;
-    *economy = new_economy;
     let market_name = &economy.market(market)?.question;
     ctx.send(|f| {
         f.embed(|f| {
@@ -428,6 +427,7 @@ pub async fn buy(
         })
     })
     .await?;
+    *economy = new_economy;
     Ok(())
 }
 
@@ -442,7 +442,6 @@ pub async fn tip(
     let amount = Money(amount);
     let mut economy = ctx.data().lock().await;
     let new_economy = economy.tip(ctx.author().id, user_to_tip.id, amount)?;
-    *economy = new_economy;
     ctx.say(format!(
         "Tipped {amount} to {}{}",
         user_to_tip.mention(),
@@ -452,6 +451,7 @@ pub async fn tip(
         }
     ))
     .await?;
+    *economy = new_economy;
     Ok(())
 }
 
