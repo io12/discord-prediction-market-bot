@@ -15,4 +15,4 @@ im = { version = "15.1.0", features = ["serde"] }
 poise = "0.5.5"
 serde = "1.0.183"
 serde_json = "1.0.104"
-tokio = { version = "1.29.1", features = ["rt-multi-thread"] }
+tokio = { version = "1.30.0", features = ["rt-multi-thread"] }
