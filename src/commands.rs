@@ -432,7 +432,7 @@ pub async fn buy(
 
     ctx.send(
         poise::CreateReply::default()
-            .embed(embed)
+            .embed(embed.clone())
             .components(buttons)
             .ephemeral(true),
     )
@@ -448,6 +448,7 @@ pub async fn buy(
                         EditInteractionResponse::new().content("Confirmed."),
                     )
                     .await?;
+                    ctx.send(poise::CreateReply::default().embed(embed.clone())).await?;
                     let (new_economy, _) = economy.buy(id, market, purchase_price, share_kind)?;
                     *economy = new_economy;
                 } else {
