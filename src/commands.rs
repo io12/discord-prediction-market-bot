@@ -5,7 +5,9 @@ use crate::{
     Context, Economy,
 };
 use anyhow::{Context as AnyhowContext, Result};
-use poise::serenity_prelude::{Color, Mention, Mentionable, User, UserId};
+use poise::serenity_prelude::{
+    AutocompleteChoice, Color, CreateEmbed, Mention, Mentionable, User, UserId,
+};
 
 impl ShareKind {
     fn color(&self) -> Color {
@@ -95,10 +97,7 @@ fn make_matcher() -> impl fuzzy_matcher::FuzzyMatcher {
     fuzzy_matcher::skim::SkimMatcherV2::default().ignore_case()
 }
 
-async fn autocomplete_market(
-    ctx: Context<'_>,
-    prefix: &str,
-) -> Vec<poise::AutocompleteChoice<MarketId>> {
+async fn autocomplete_market(ctx: Context<'_>, prefix: &str) -> Vec<AutocompleteChoice> {
     use fuzzy_matcher::FuzzyMatcher;
     let matcher = make_matcher();
     let economy = ctx.data().lock().await;
@@ -107,18 +106,12 @@ async fn autocomplete_market(
         .filter_map(|Market { id, question, .. }| {
             matcher
                 .fuzzy_match(question, prefix)
-                .map(|_| poise::AutocompleteChoice {
-                    name: question.clone(),
-                    value: *id,
-                })
+                .map(|_| AutocompleteChoice::new(question, *id))
         })
         .collect()
 }
 
-async fn autocomplete_users_markets(
-    ctx: Context<'_>,
-    prefix: &str,
-) -> Vec<poise::AutocompleteChoice<MarketId>> {
+async fn autocomplete_users_markets(ctx: Context<'_>, prefix: &str) -> Vec<AutocompleteChoice> {
     use fuzzy_matcher::FuzzyMatcher;
     let matcher = make_matcher();
     let economy = ctx.data().lock().await;
@@ -134,10 +127,7 @@ async fn autocomplete_users_markets(
                 if *creator == ctx.author().id {
                     matcher
                         .fuzzy_match(question, prefix)
-                        .map(|_| poise::AutocompleteChoice {
-                            name: question.clone(),
-                            value: *id,
-                        })
+                        .map(|_| AutocompleteChoice::new(question, *id))
                 } else {
                     None
                 }
@@ -167,20 +157,20 @@ pub async fn help(
 #[poise::command(slash_command, prefix_command)]
 pub async fn balances(ctx: Context<'_>) -> Result<()> {
     let economy = ctx.data().lock().await;
-    ctx.send(|f| {
-        f.embed(|f| {
-            f.color(Color::DARK_GOLD).title("User balances").fields(
-                economy
-                    .balances()
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, (user_id, balance))| {
+    ctx.send(
+        poise::CreateReply::default().embed(
+            CreateEmbed::new()
+                .color(Color::DARK_GOLD)
+                .title("User balances")
+                .fields(economy.balances().into_iter().enumerate().map(
+                    |(i, (user_id, balance))| {
+                        let num = i + 1;
                         let mention = Mention::User(user_id);
-                        (i + 1, format!("{mention} {balance}"), true)
-                    }),
-            )
-        })
-    })
+                        (format!("{num}"), format!("{mention} {balance}"), true)
+                    },
+                )),
+        ),
+    )
     .await?;
     Ok(())
 }
@@ -211,11 +201,12 @@ pub async fn portfolio(
     let user = user.as_ref().unwrap_or_else(|| ctx.author());
     let economy = ctx.data().lock().await;
     let portfolio = economy.portfolio(user.id);
-    ctx.send(|f| {
-        f.embed(|f| {
-            f.color(Color::TEAL)
+    ctx.send(
+        poise::CreateReply::default().embed(
+            CreateEmbed::new()
+                .color(Color::TEAL)
                 .title(format!("{}'s portfolio", user.name))
-                .field("Cash", portfolio.cash, true)
+                .field("Cash", format!("{}", portfolio.cash), true)
                 .fields(
                     portfolio
                         .market_positions
@@ -223,9 +214,9 @@ pub async fn portfolio(
                         .map(|(question, kind_quantity)| {
                             (question, format!("{kind_quantity} shares"), false)
                         }),
-                )
-        })
-    })
+                ),
+        ),
+    )
     .await?;
     Ok(())
 }
@@ -264,13 +255,14 @@ pub async fn create_market(
     let (new_economy, market_id) =
         economy.create_market(ctx.author().id, question, description, close_timestamp)?;
     let market = new_economy.market(market_id)?;
-    ctx.send(|f| {
-        f.embed(|f| {
-            f.color(Color::GOLD)
+    ctx.send(
+        poise::CreateReply::default().embed(
+            CreateEmbed::new()
+                .color(Color::GOLD)
                 .title("Created market:")
-                .fields(market_to_descriptive_fields(market))
-        })
-    })
+                .fields(market_to_descriptive_fields(market)),
+        ),
+    )
     .await?;
     *economy = new_economy;
     Ok(())
@@ -280,13 +272,14 @@ pub async fn create_market(
 #[poise::command(slash_command, prefix_command)]
 pub async fn list_markets(ctx: Context<'_>) -> Result<()> {
     let economy = ctx.data().lock().await;
-    ctx.send(|f| {
-        f.embed(|f| {
-            f.color(Color::DARK_BLUE)
+    ctx.send(
+        poise::CreateReply::default().embed(
+            CreateEmbed::new()
+                .color(Color::DARK_BLUE)
                 .title("Markets")
-                .fields(economy.list_markets().map(market_to_brief_field))
-        })
-    })
+                .fields(economy.list_markets().map(market_to_brief_field)),
+        ),
+    )
     .await?;
     Ok(())
 }
@@ -301,13 +294,14 @@ pub async fn show_market(
 ) -> Result<()> {
     let economy = ctx.data().lock().await;
     let market = economy.market(market)?;
-    ctx.send(|f| {
-        f.embed(|f| {
-            f.color(Color::DARK_BLUE)
+    ctx.send(
+        poise::CreateReply::default().embed(
+            CreateEmbed::new()
+                .color(Color::DARK_BLUE)
                 .title("Market")
-                .fields(market_to_descriptive_fields(market))
-        })
-    })
+                .fields(market_to_descriptive_fields(market)),
+        ),
+    )
     .await?;
     Ok(())
 }
@@ -323,13 +317,14 @@ pub async fn resolve_market(
 ) -> Result<()> {
     let mut economy = ctx.data().lock().await;
     let (new_economy, market) = economy.resolve_market(ctx.author().id, market, outcome)?;
-    ctx.send(|f| {
-        f.embed(|f| {
-            f.color(outcome.color())
+    ctx.send(
+        poise::CreateReply::default().embed(
+            CreateEmbed::new()
+                .color(outcome.color())
                 .title(format!("Resolved market {outcome}:"))
-                .fields(market_to_descriptive_fields(&market))
-        })
-    })
+                .fields(market_to_descriptive_fields(&market)),
+        ),
+    )
     .await?;
     *economy = new_economy;
     Ok(())
@@ -361,22 +356,18 @@ pub async fn sell(
         economy.sell(ctx.author().id, market, sell_amount)?;
     let prob_change = probability_change_string(&economy, &new_economy, market)?;
     let market_name = &economy.market(market)?.question;
-    ctx.send(|f| {
-        f.embed(|f| {
-            let f = f
-                .color(Color::BLITZ_BLUE)
-                .title(format!("Sell {}", shares_sold.kind))
-                .field("Shares sold", shares_sold, true)
-                .field("Sale price", sale_price, true)
-                .field("Probability change", prob_change, true)
-                .field("Market", market_name, true);
-            match reason {
-                None => f,
-                Some(reason) => f.field("Reason", reason, true),
-            }
-        })
-    })
-    .await?;
+    let embed = CreateEmbed::new()
+        .color(Color::BLITZ_BLUE)
+        .title(format!("Sell {}", shares_sold.kind))
+        .field("Shares sold", shares_sold.to_string(), true)
+        .field("Sale price", sale_price.to_string(), true)
+        .field("Probability change", prob_change, true)
+        .field("Market", market_name, true);
+    let embed = match reason {
+        None => embed,
+        Some(reason) => embed.field("Reason", reason, true),
+    };
+    ctx.send(poise::CreateReply::default().embed(embed)).await?;
     *economy = new_economy;
     Ok(())
 }
@@ -400,31 +391,27 @@ pub async fn buy(
         economy.buy(ctx.author().id, market, purchase_price, share_kind)?;
     let prob_change = probability_change_string(&economy, &new_economy, market)?;
     let market_name = &economy.market(market)?.question;
-    ctx.send(|f| {
-        f.embed(|f| {
-            let f = f
-                .color(share_kind.color())
-                .title(format!("Buy {share_kind}"))
-                .field("Shares bought", shares_received, true)
-                .field("Buy price", purchase_price, true)
-                .field("Probability change", prob_change, true)
-                .field(
-                    format!("Profit if {share_kind}"),
-                    format!(
-                        "+{} (+{:.0}%)",
-                        Money(shares_received.0 - purchase_price.0),
-                        (shares_received.0 / purchase_price.0 - 1.0) * 100.0,
-                    ),
-                    true,
-                )
-                .field("Market", market_name, true);
-            match reason {
-                None => f,
-                Some(reason) => f.field("Reason", reason, true),
-            }
-        })
-    })
-    .await?;
+    let embed = CreateEmbed::new()
+        .color(share_kind.color())
+        .title(format!("Buy {share_kind}"))
+        .field("Shares bought", shares_received.to_string(), true)
+        .field("Buy price", purchase_price.to_string(), true)
+        .field("Probability change", prob_change, true)
+        .field(
+            format!("Profit if {share_kind}"),
+            format!(
+                "+{} (+{:.0}%)",
+                Money(shares_received.0 - purchase_price.0),
+                (shares_received.0 / purchase_price.0 - 1.0) * 100.0,
+            ),
+            true,
+        )
+        .field("Market", market_name, true);
+    let embed = match reason {
+        None => embed,
+        Some(reason) => embed.field("Reason", reason, true),
+    };
+    ctx.send(poise::CreateReply::default().embed(embed)).await?;
     *economy = new_economy;
     Ok(())
 }
@@ -453,10 +440,7 @@ pub async fn tip(
     Ok(())
 }
 
-async fn autocomplete_tz(
-    _: Context<'_>,
-    prefix: &str,
-) -> Vec<poise::AutocompleteChoice<&'static str>> {
+async fn autocomplete_tz(_: Context<'_>, prefix: &str) -> Vec<AutocompleteChoice> {
     use fuzzy_matcher::FuzzyMatcher;
     let matcher = make_matcher();
     chrono_tz::TZ_VARIANTS
@@ -464,10 +448,7 @@ async fn autocomplete_tz(
         .filter_map(|tz| {
             matcher
                 .fuzzy_match(tz.name(), prefix)
-                .map(|_| poise::AutocompleteChoice {
-                    name: tz.to_string(),
-                    value: tz.name(),
-                })
+                .map(|_| AutocompleteChoice::new(tz.to_string(), tz.name()))
         })
         .collect()
 }
@@ -493,12 +474,13 @@ pub async fn input_time(
         chrono_english::Dialect::Us,
     )?;
     let timestamp = date_time_parsed.timestamp();
-    ctx.send(|f| {
-        f.embed(|f| {
-            f.color(Color::BLURPLE)
+    ctx.send(
+        poise::CreateReply::default().embed(
+            CreateEmbed::new()
+                .color(Color::BLURPLE)
                 .title("Time input test")
                 .field("Date/time input string", date_time, true)
-                .field("Timezone", timezone, true)
+                .field("Timezone", timezone.name(), true)
                 .field(
                     "Discord timestamp (short time)",
                     format!("<t:{timestamp}:t>"),
@@ -533,9 +515,9 @@ pub async fn input_time(
                     "Discord timestamp (relative time)",
                     format!("<t:{timestamp}:R>"),
                     true,
-                )
-        })
-    })
+                ),
+        ),
+    )
     .await?;
     Ok(())
 }

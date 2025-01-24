@@ -6,5 +6,5 @@ use serde::{Deserialize, Serialize};
 )]
 #[mul(forward)]
 #[div(forward)]
-#[display(fmt = "{_0:.2}")]
+#[display("{_0:.2}")]
 pub struct ShareQuantity(pub f64);

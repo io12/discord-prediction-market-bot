@@ -26,6 +26,9 @@ async fn save_state(ctx: Context<'_>) {
 
 #[tokio::main]
 async fn main() {
+    let token = std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN");
+    let intents = serenity::GatewayIntents::non_privileged();
+
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
             commands: {
@@ -49,9 +52,14 @@ async fn main() {
             post_command: |ctx| Box::pin(save_state(ctx)),
             ..Default::default()
         })
-        .token(std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN"))
-        .intents(serenity::GatewayIntents::non_privileged())
-        .setup(|_ctx, _ready, _framework| Box::pin(async move { Ok(Mutex::new(load_state())) }));
+        .setup(|_ctx, _ready, _framework| Box::pin(async move { Ok(Mutex::new(load_state())) }))
+        .build();
 
-    framework.run().await.unwrap();
+    serenity::ClientBuilder::new(token, intents)
+        .framework(framework)
+        .await
+        .unwrap()
+        .start()
+        .await
+        .unwrap();
 }

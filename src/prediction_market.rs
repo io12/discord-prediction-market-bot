@@ -35,7 +35,10 @@ pub struct Portfolio {
     pub market_positions: Vec<(String, ShareKindAndQuantity)>,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize, ChoiceParameter)]
+#[derive(
+    Copy, Clone, PartialEq, Eq, Serialize, Deserialize, ChoiceParameter, derive_more::Display,
+)]
+#[display("{}", self.name())]
 pub enum ShareKind {
     #[name = "YES"]
     Yes,
@@ -43,7 +46,8 @@ pub enum ShareKind {
     No,
 }
 
-#[derive(Copy, Clone, ChoiceParameter)]
+#[derive(Copy, Clone, ChoiceParameter, derive_more::Display)]
+#[display("{}", self.name())]
 pub enum ResolveOutcome {
     #[name = "YES"]
     Yes,
@@ -56,9 +60,9 @@ pub enum ResolveOutcome {
 
 #[derive(Copy, Clone, Serialize, Deserialize, derive_more::Display)]
 pub enum TransactionKind {
-    #[display(fmt = "BUY")]
+    #[display("BUY")]
     Buy,
-    #[display(fmt = "SELL")]
+    #[display("SELL")]
     Sell,
 }
 
@@ -72,7 +76,7 @@ pub struct TransactionInfo<UserId> {
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, derive_more::Display)]
-#[display(fmt = "{quantity} {kind}")]
+#[display("{quantity} {kind}")]
 pub struct ShareKindAndQuantity {
     pub kind: ShareKind,
     pub quantity: ShareQuantity,
