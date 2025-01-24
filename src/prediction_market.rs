@@ -17,7 +17,7 @@ pub struct Economy<UserId: Ord + Clone> {
     markets: OrdMap<MarketId, Market<UserId>>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub struct Market<UserId: Ord + Clone> {
     pub id: MarketId,
     pub creator: UserId,
@@ -58,7 +58,7 @@ pub enum ResolveOutcome {
     Undo,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, derive_more::Display)]
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, derive_more::Display)]
 pub enum TransactionKind {
     #[display("BUY")]
     Buy,
@@ -66,7 +66,7 @@ pub enum TransactionKind {
     Sell,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TransactionInfo<UserId> {
     pub user: UserId,
     pub kind: TransactionKind,
@@ -75,7 +75,7 @@ pub struct TransactionInfo<UserId> {
     pub new_probability: u8,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, derive_more::Display)]
+#[derive(Copy, Clone, Serialize, Deserialize, PartialEq, derive_more::Display)]
 #[display("{quantity} {kind}")]
 pub struct ShareKindAndQuantity {
     pub kind: ShareKind,

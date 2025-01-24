@@ -6,7 +6,8 @@ use crate::{
 };
 use anyhow::{Context as AnyhowContext, Result};
 use poise::serenity_prelude::{
-    AutocompleteChoice, Color, CreateEmbed, Mention, Mentionable, User, UserId,
+    AutocompleteChoice, ButtonStyle, Color, ComponentInteractionCollector, CreateActionRow,
+    CreateButton, CreateEmbed, EditInteractionResponse, Mention, Mentionable, User, UserId,
 };
 
 impl ShareKind {
@@ -386,11 +387,18 @@ pub async fn buy(
     #[description = "Reason you are buying"] reason: Option<String>,
 ) -> Result<()> {
     let purchase_price = Money(purchase_price);
-    let mut economy = ctx.data().lock().await;
-    let (new_economy, shares_received) =
-        economy.buy(ctx.author().id, market, purchase_price, share_kind)?;
-    let prob_change = probability_change_string(&economy, &new_economy, market)?;
-    let market_name = &economy.market(market)?.question;
+    let id = ctx.author().id;
+    let (old_economy, (new_economy, shares_received)) = {
+        let economy = ctx.data().lock().await;
+        (
+            economy.clone(),
+            economy.buy(id, market, purchase_price, share_kind)?,
+        )
+    };
+    let old_market = old_economy.market(market)?;
+    let prob_change = probability_change_string(&old_economy, &new_economy, market)?;
+    let market_name = &old_market.question;
+
     let embed = CreateEmbed::new()
         .color(share_kind.color())
         .title(format!("Buy {share_kind}"))
@@ -407,12 +415,60 @@ pub async fn buy(
             true,
         )
         .field("Market", market_name, true);
+
     let embed = match reason {
         None => embed,
         Some(reason) => embed.field("Reason", reason, true),
     };
-    ctx.send(poise::CreateReply::default().embed(embed)).await?;
-    *economy = new_economy;
+
+    let buttons = vec![CreateActionRow::Buttons(vec![
+        CreateButton::new("confirm")
+            .label("Confirm")
+            .style(ButtonStyle::Success),
+        CreateButton::new("deny")
+            .label("Deny")
+            .style(ButtonStyle::Danger),
+    ])];
+
+    ctx.send(
+        poise::CreateReply::default()
+            .embed(embed)
+            .components(buttons)
+            .ephemeral(true),
+    )
+    .await?;
+
+    while let Some(mci) = ComponentInteractionCollector::new(ctx.serenity_context()).await {
+        match mci.data.custom_id.as_str() {
+            "confirm" => {
+                let mut economy = ctx.data().lock().await;
+                if economy.market(market)? == old_market {
+                    mci.edit_response(
+                        ctx.http(),
+                        EditInteractionResponse::new().content("Confirmed."),
+                    )
+                    .await?;
+                    let (new_economy, _) = economy.buy(id, market, purchase_price, share_kind)?;
+                    *economy = new_economy;
+                } else {
+                    mci.edit_response(
+                        ctx.http(),
+                        EditInteractionResponse::new().content("Market changed. Try again."),
+                    )
+                    .await?;
+                }
+            }
+            "deny" => {
+                mci.edit_response(
+                    ctx.http(),
+                    EditInteractionResponse::new().content("Denied."),
+                )
+                .await?;
+            }
+            _ => {}
+        }
+    }
+
     Ok(())
 }
 
