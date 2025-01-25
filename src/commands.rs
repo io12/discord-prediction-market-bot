@@ -7,8 +7,8 @@ use crate::{
 use anyhow::{Context as AnyhowContext, Result};
 use poise::serenity_prelude::{
     AutocompleteChoice, ButtonStyle, Color, ComponentInteractionCollector, CreateActionRow,
-    CreateButton, CreateEmbed, CreateInteractionResponse, EditInteractionResponse, EditMessage,
-    Mention, Mentionable, User, UserId,
+    CreateButton, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage,
+    EditInteractionResponse, EditMessage, Mention, Mentionable, User, UserId,
 };
 
 impl ShareKind {
@@ -462,10 +462,13 @@ pub async fn buy(
                 }
             }
             "deny" => {
-                let mut msg = mci.message.clone();
-                msg.edit(ctx, EditMessage::new().content("Denied.")).await?;
-                mci.create_response(ctx, CreateInteractionResponse::Acknowledge)
-                    .await?;
+                mci.create_response(
+                    ctx,
+                    CreateInteractionResponse::UpdateMessage(
+                        CreateInteractionResponseMessage::new().content("Denied."),
+                    ),
+                )
+                .await?;
             }
             _ => {}
         }
