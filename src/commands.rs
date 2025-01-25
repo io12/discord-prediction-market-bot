@@ -7,7 +7,8 @@ use crate::{
 use anyhow::{Context as AnyhowContext, Result};
 use poise::serenity_prelude::{
     AutocompleteChoice, ButtonStyle, Color, ComponentInteractionCollector, CreateActionRow,
-    CreateButton, CreateEmbed, EditInteractionResponse, Mention, Mentionable, User, UserId,
+    CreateButton, CreateEmbed, CreateInteractionResponse, EditInteractionResponse, EditMessage,
+    Mention, Mentionable, User, UserId,
 };
 
 impl ShareKind {
@@ -448,7 +449,8 @@ pub async fn buy(
                         EditInteractionResponse::new().content("Confirmed."),
                     )
                     .await?;
-                    ctx.send(poise::CreateReply::default().embed(embed.clone())).await?;
+                    ctx.send(poise::CreateReply::default().embed(embed.clone()))
+                        .await?;
                     let (new_economy, _) = economy.buy(id, market, purchase_price, share_kind)?;
                     *economy = new_economy;
                 } else {
@@ -460,11 +462,10 @@ pub async fn buy(
                 }
             }
             "deny" => {
-                mci.edit_response(
-                    ctx.http(),
-                    EditInteractionResponse::new().content("Denied."),
-                )
-                .await?;
+                let mut msg = mci.message.clone();
+                msg.edit(ctx, EditMessage::new().content("Denied.")).await?;
+                mci.create_response(ctx, CreateInteractionResponse::Acknowledge)
+                    .await?;
             }
             _ => {}
         }
