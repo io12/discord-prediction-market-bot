@@ -467,7 +467,8 @@ pub async fn buy(
                     CreateInteractionResponse::UpdateMessage(
                         CreateInteractionResponseMessage::new()
                             .content("Denied.")
-                            .embeds(Vec::new()),
+                            .embeds(Vec::new())
+                            .components(Vec::new()),
                     ),
                 )
                 .await?;
