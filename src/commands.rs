@@ -458,13 +458,11 @@ pub async fn buy(
             "confirm" => {
                 let mut economy = ctx.data().lock().await;
                 if economy.market(market)? == old_market {
+                    confirmation_message.delete(ctx).await?;
                     mci.create_response(
                         ctx,
-                        CreateInteractionResponse::UpdateMessage(
-                            CreateInteractionResponseMessage::new()
-                                .embed(embed.clone())
-                                .components(Vec::new())
-                                .ephemeral(false),
+                        CreateInteractionResponse::Message(
+                            CreateInteractionResponseMessage::new().embed(embed.clone()),
                         ),
                     )
                     .await?;
