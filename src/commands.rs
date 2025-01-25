@@ -443,14 +443,29 @@ pub async fn buy(
             "confirm" => {
                 let mut economy = ctx.data().lock().await;
                 if economy.market(market)? == old_market {
-                    ctx.send(poise::CreateReply::default().embed(embed.clone()))
-                        .await?;
+                    mci.edit_response(
+                        ctx.http(),
+                        EditInteractionResponse::new().content("Confirmed."),
+                    )
+                    .await?;
+                    ctx.send(poise::CreateReply::default().embed(embed.clone())).await?;
                     let (new_economy, _) = economy.buy(id, market, purchase_price, share_kind)?;
                     *economy = new_economy;
                 } else {
+                    mci.edit_response(
+                        ctx.http(),
+                        EditInteractionResponse::new().content("Market changed. Try again."),
+                    )
+                    .await?;
                 }
             }
-            "deny" => {}
+            "deny" => {
+                mci.edit_response(
+                    ctx.http(),
+                    EditInteractionResponse::new().content("Denied."),
+                )
+                .await?;
+            }
             _ => {}
         }
     }
