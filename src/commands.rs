@@ -431,13 +431,14 @@ pub async fn buy(
             .style(ButtonStyle::Danger),
     ])];
 
-    ctx.send(
-        poise::CreateReply::default()
-            .embed(embed.clone())
-            .components(buttons)
-            .ephemeral(true),
-    )
-    .await?;
+    let confirmation_message = ctx
+        .send(
+            poise::CreateReply::default()
+                .embed(embed.clone())
+                .components(buttons)
+                .ephemeral(true),
+        )
+        .await?;
 
     let respond_update_message = |content| {
         CreateInteractionResponse::UpdateMessage(
@@ -448,7 +449,11 @@ pub async fn buy(
         )
     };
 
-    while let Some(mci) = ComponentInteractionCollector::new(ctx.serenity_context()).await {
+    while let Some(mci) = ComponentInteractionCollector::new(ctx.serenity_context())
+        .author_id(id)
+        .message_id(confirmation_message.message().await?.id)
+        .await
+    {
         match mci.data.custom_id.as_str() {
             "confirm" => {
                 let mut economy = ctx.data().lock().await;
