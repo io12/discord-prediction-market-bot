@@ -8,7 +8,7 @@ use anyhow::{Context as AnyhowContext, Result};
 use poise::serenity_prelude::{
     AutocompleteChoice, ButtonStyle, Color, ComponentInteractionCollector, CreateActionRow,
     CreateButton, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage,
-    EditInteractionResponse, EditMessage, Mention, Mentionable, User, UserId,
+    Mention, Mentionable, User, UserId,
 };
 
 impl ShareKind {
@@ -439,39 +439,34 @@ pub async fn buy(
     )
     .await?;
 
+    let respond_update_message = |content| {
+        CreateInteractionResponse::UpdateMessage(
+            CreateInteractionResponseMessage::new()
+                .content(content)
+                .embeds(Vec::new())
+                .components(Vec::new()),
+        )
+    };
+
     while let Some(mci) = ComponentInteractionCollector::new(ctx.serenity_context()).await {
         match mci.data.custom_id.as_str() {
             "confirm" => {
                 let mut economy = ctx.data().lock().await;
                 if economy.market(market)? == old_market {
-                    mci.edit_response(
-                        ctx.http(),
-                        EditInteractionResponse::new().content("Confirmed."),
-                    )
-                    .await?;
+                    mci.create_response(ctx, respond_update_message("Confirmed."))
+                        .await?;
                     ctx.send(poise::CreateReply::default().embed(embed.clone()))
                         .await?;
                     let (new_economy, _) = economy.buy(id, market, purchase_price, share_kind)?;
                     *economy = new_economy;
                 } else {
-                    mci.edit_response(
-                        ctx.http(),
-                        EditInteractionResponse::new().content("Market changed. Try again."),
-                    )
-                    .await?;
+                    mci.create_response(ctx, respond_update_message("Market changed. Try again."))
+                        .await?;
                 }
             }
             "deny" => {
-                mci.create_response(
-                    ctx,
-                    CreateInteractionResponse::UpdateMessage(
-                        CreateInteractionResponseMessage::new()
-                            .content("Denied.")
-                            .embeds(Vec::new())
-                            .components(Vec::new()),
-                    ),
-                )
-                .await?;
+                mci.create_response(ctx, respond_update_message("Denied."))
+                    .await?;
             }
             _ => {}
         }
