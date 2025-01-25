@@ -465,7 +465,9 @@ pub async fn buy(
                 mci.create_response(
                     ctx,
                     CreateInteractionResponse::UpdateMessage(
-                        CreateInteractionResponseMessage::new().content("Denied."),
+                        CreateInteractionResponseMessage::new()
+                            .content("Denied.")
+                            .embeds(Vec::new()),
                     ),
                 )
                 .await?;
