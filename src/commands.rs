@@ -453,10 +453,16 @@ pub async fn buy(
             "confirm" => {
                 let mut economy = ctx.data().lock().await;
                 if economy.market(market)? == old_market {
-                    mci.create_response(ctx, respond_update_message("Confirmed."))
-                        .await?;
-                    ctx.send(poise::CreateReply::default().embed(embed.clone()))
-                        .await?;
+                    mci.create_response(
+                        ctx,
+                        CreateInteractionResponse::UpdateMessage(
+                            CreateInteractionResponseMessage::new()
+                                .embed(embed.clone())
+                                .components(Vec::new())
+                                .ephemeral(false),
+                        ),
+                    )
+                    .await?;
                     let (new_economy, _) = economy.buy(id, market, purchase_price, share_kind)?;
                     *economy = new_economy;
                 } else {
