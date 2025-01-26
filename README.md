@@ -32,6 +32,7 @@ They can bet in markets by buying and selling YES and NO shares
 with `/buy` and `/sell`.
 A YES share is a contract that pays out \$1 if the market resolves YES,
 and a NO share pays out \$1 if the market resolves NO.
+
 The creator of a market can resolve it with `/resolve_market`,
 saying the outcome was YES or NO.
 The market creator can also resolve a market UNDO,
