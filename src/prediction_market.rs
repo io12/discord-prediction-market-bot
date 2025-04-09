@@ -1,4 +1,5 @@
 use anyhow::{bail, ensure, Context, Result};
+use chrono::{DateTime, Utc};
 use im::ordmap::OrdMap;
 use poise::ChoiceParameter;
 use serde::{Deserialize, Serialize};
@@ -26,8 +27,9 @@ pub struct Market<UserId: Ord + Clone> {
     y: ShareQuantity,
     n: ShareQuantity,
     pub num_user_shares: OrdMap<UserId, ShareKindAndQuantity>,
-    pub transaction_history: Option<Vec<TransactionInfo<UserId>>>,
+    pub transaction_history: Vec<TransactionInfo<UserId>>,
     pub close_timestamp: Option<i64>,
+    pub creation_time: DateTime<Utc>,
 }
 
 pub struct Portfolio {
@@ -73,6 +75,7 @@ pub struct TransactionInfo<UserId> {
     pub shares: ShareKindAndQuantity,
     pub money: Money,
     pub new_probability: u8,
+    pub time: DateTime<Utc>,
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, derive_more::Display)]
@@ -89,6 +92,7 @@ impl<UserId: Ord + Clone> Market<UserId> {
         question: String,
         description: String,
         close_timestamp: Option<i64>,
+        creation_time: DateTime<Utc>,
     ) -> Self {
         Market {
             id,
@@ -98,8 +102,9 @@ impl<UserId: Ord + Clone> Market<UserId> {
             y: ShareQuantity(MARKET_CREATION_COST.0),
             n: ShareQuantity(MARKET_CREATION_COST.0),
             num_user_shares: OrdMap::new(),
-            transaction_history: Some(Vec::new()),
+            transaction_history: Vec::new(),
             close_timestamp,
+            creation_time,
         }
     }
 
@@ -111,7 +116,7 @@ impl<UserId: Ord + Clone> Market<UserId> {
     pub fn is_open(&self) -> bool {
         match self.close_timestamp {
             None => true,
-            Some(close_timestamp) => chrono::Local::now().timestamp() < close_timestamp,
+            Some(close_timestamp) => Utc::now().timestamp() < close_timestamp,
         }
     }
 }
@@ -195,6 +200,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             question,
             description,
             close_timestamp,
+            Utc::now(),
         );
         ensure!(
             new_economy.markets.insert(market_id, market).is_none(),
@@ -260,11 +266,7 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         let mut new_economy = self.clone();
 
         *new_economy.balance_mut(calling_user) += MARKET_CREATION_COST;
-        let hist = market
-            .transaction_history
-            .as_ref()
-            .context("market was created before transaction history was implemented")?;
-        for transaction in hist {
+        for transaction in &market.transaction_history {
             let sign = match transaction.kind {
                 TransactionKind::Buy => 1.0,
                 TransactionKind::Sell => -1.0,
@@ -341,15 +343,14 @@ impl<UserId: Ord + Clone> Economy<UserId> {
         );
         let sale_price = Money(sale_price);
         let new_probability = market.probability();
-        if let Some(hist) = &mut market.transaction_history {
-            hist.push(TransactionInfo {
-                user: calling_user.clone(),
-                kind: TransactionKind::Sell,
-                shares: shares_sold,
-                money: sale_price,
-                new_probability,
-            });
-        }
+        market.transaction_history.push(TransactionInfo {
+            user: calling_user.clone(),
+            kind: TransactionKind::Sell,
+            shares: shares_sold,
+            money: sale_price,
+            new_probability,
+            time: Utc::now(),
+        });
         let user_money = new_economy.balance_mut(calling_user);
         *user_money += sale_price;
         Ok((new_economy, shares_sold, sale_price))
@@ -423,15 +424,14 @@ impl<UserId: Ord + Clone> Economy<UserId> {
             }
         }
         let new_probability = market.probability();
-        if let Some(hist) = &mut market.transaction_history {
-            hist.push(TransactionInfo {
-                user: calling_user,
-                kind: TransactionKind::Buy,
-                shares: new_user_shares,
-                money: purchase_price,
-                new_probability,
-            });
-        }
+        market.transaction_history.push(TransactionInfo {
+            user: calling_user,
+            kind: TransactionKind::Buy,
+            shares: new_user_shares,
+            money: purchase_price,
+            new_probability,
+            time: Utc::now(),
+        });
         Ok((new_economy, bought_shares))
     }
 

@@ -59,25 +59,25 @@ fn market_positions_string(market: &Market<UserId>) -> String {
 }
 
 fn market_transactions_string(market: &Market<UserId>) -> String {
-    match &market.transaction_history {
-        Some(hist) => hist
-            .iter()
-            .map(
-                |TransactionInfo {
-                     user,
-                     kind,
-                     shares,
-                     money,
-                     new_probability,
-                 }| {
-                    let user = Mention::User(*user);
-                    format!("{user} {kind} {shares} for {money} | {new_probability}%")
-                },
-            )
-            .collect::<Vec<String>>()
-            .join("\n"),
-        None => "_Market was created before transaction history was implemented_".to_string(),
-    }
+    market
+        .transaction_history
+        .iter()
+        .map(
+            |TransactionInfo {
+                 user,
+                 kind,
+                 shares,
+                 money,
+                 new_probability,
+                 time,
+             }| {
+                let timestamp = time.timestamp();
+                let user = Mention::User(*user);
+                format!("<t:{timestamp}:R> {user} {kind} {shares} for {money} | {new_probability}%")
+            },
+        )
+        .collect::<Vec<String>>()
+        .join("\n")
 }
 
 fn market_to_descriptive_fields(market: &Market<UserId>) -> [(String, String, bool); 4] {
